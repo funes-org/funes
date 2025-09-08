@@ -1,8 +1,8 @@
 module Funes
   module ProjectionTestHelper
-    def apply_event_to_state(projection_class, previous_state, event)
-      projection_class.interpretations[event[:type]]
-                      .call(previous_state, event)
+    def project_event_based_on(projection_class, event_instance, previous_state)
+      projection_class.interpretations[event_instance[:type]]
+                      .call(previous_state, event_instance)
     end
   end
 end
