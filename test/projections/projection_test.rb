@@ -38,7 +38,7 @@ class ProjectionTest < ActiveSupport::TestCase
     end
 
     it "raises an exception when processing unknown events with strict configuration enabled" do
-      assert_raises RuntimeError do
+      assert_raises Funes::UnknownEvent, "Events of the type Test::Unknown are not processable" do
         StrictProjection.process_events([ { type: "Test::Start", value: 5 },
                                          { type: "Test::Unknown", value: 4 } ])
       end

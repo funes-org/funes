@@ -20,7 +20,7 @@ class OutstandingBalanceSampleProjectionTest < ActiveSupport::TestCase
       end
 
       it "raises an error when payment processing would result in negative balance" do
-        assert_raise RuntimeError do
+        assert_raise Funes::LedToInvalidState, "The outstanding balance can't be negative" do
           apply_event_to_state(OutstandingBalanceSampleProjection, 5,
                                { type: "Debt::Paid", value: 5, discount: 5 })
         end
