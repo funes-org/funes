@@ -10,13 +10,25 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_09_18_023414) do
-  create_table "debt_collections_projections", id: false, force: :cascade do |t|
+ActiveRecord::Schema[8.0].define(version: 2025_09_27_111752) do
+  create_table "debt_collections", id: false, force: :cascade do |t|
     t.string "idx", null: false
     t.decimal "outstanding_balance", precision: 15, scale: 2, null: false
     t.date "issuance_date", null: false
     t.date "last_payment_date"
-    t.index [ "idx" ], name: "index_debt_collections_projections_on_idx", unique: true
+    t.integer "status", null: false
+    t.index [ "idx" ], name: "index_debt_collections_on_idx", unique: true
+  end
+
+  create_table "event_entries", id: false, force: :cascade do |t|
+    t.string "klass", null: false
+    t.string "idx", null: false
+    t.json "props", null: false
+    t.bigint "version", default: 1, null: false
+    t.datetime "created_at", default: -> { "CURRENT_TIMESTAMP" }, null: false
+    t.index [ "created_at" ], name: "index_event_entries_on_created_at"
+    t.index [ "idx", "version" ], name: "index_event_entries_on_idx_and_version", unique: true
+    t.index [ "idx" ], name: "index_event_entries_on_idx"
   end
 
   create_table "materializations", id: false, force: :cascade do |t|

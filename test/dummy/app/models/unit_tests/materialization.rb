@@ -1,3 +1,3 @@
-class UnitTests::Materialization < ApplicationRecord
-  self.primary_key = "idx"
+module UnitTests
+  class Materialization < ApplicationRecord; end
 end

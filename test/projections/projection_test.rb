@@ -13,18 +13,37 @@ class ProjectionTest < ActiveSupport::TestCase
   module BasicInterpretations4CurrentTest
     def self.included(base)
       base.class_eval do
-        set_interpretation_for Events4CurrentTest::Start do |_state, event|
-          { value: event.value }
+        set_initial_state do
+          materialization_model.new
+        end
+
+        set_interpretation_for Events4CurrentTest::Start do |state, event|
+          state.assign_attributes(value: event.value)
+          state
         end
 
         set_interpretation_for Events4CurrentTest::Add do |state, event|
-          { value: state[:value] + event.value }
+          state.assign_attributes(value: state.value + event.value)
+          state
         end
       end
     end
   end
 
+  activemodel_materialization = Class.new do
+    include ActiveModel::Model
+    include ActiveModel::Attributes
+
+    attribute :value, :integer
+  end
+
   basic_projection = Class.new(Funes::Projection) do
+    set_materialization_model activemodel_materialization
+
+    include BasicInterpretations4CurrentTest
+  end
+
+  basic_projection_without_materialization_model = Class.new(Funes::Projection) do
     include BasicInterpretations4CurrentTest
   end
 
@@ -44,14 +63,14 @@ class ProjectionTest < ActiveSupport::TestCase
       state = basic_projection.process_events([ Events4CurrentTest::Start.new(value: 5),
                                                 Events4CurrentTest::Add.new(value: 4),
                                                 Events4CurrentTest::Add.new(value: 2) ])
-      assert_equal 11, state[:value]
+      assert_equal 11, state.value
     end
 
     it "ignores unknown events while continuing to process valid events in the sequence" do
       state = basic_projection.process_events([ Events4CurrentTest::Start.new(value: 5),
                                                 Events4CurrentTest::Unknown.new,
                                                 Events4CurrentTest::Add.new(value: 2) ])
-      assert_equal 7, state[:value]
+      assert_equal 7, state.value
     end
   end
 
@@ -66,6 +85,7 @@ class ProjectionTest < ActiveSupport::TestCase
     it "raises an exception when processing unknown events with strict configuration enabled" do
       projection_that_does_not_ignore_unknown_events = Class.new(Funes::Projection) do
         not_ignore_unknown_event_types
+        set_materialization_model activemodel_materialization
 
         include BasicInterpretations4CurrentTest
       end
@@ -78,13 +98,6 @@ class ProjectionTest < ActiveSupport::TestCase
   end
 
   describe "persistence management" do
-    activemodel_materialization = Class.new do
-      include ActiveModel::Model
-      include ActiveModel::Attributes
-
-      attribute :value, :integer
-    end
-
     projection_with_activemodel_as_materialization_model = Class.new(Funes::Projection) do
       set_materialization_model activemodel_materialization
 
@@ -119,7 +132,7 @@ class ProjectionTest < ActiveSupport::TestCase
       describe "when there is no materialization model set" do
         it "raises an exception" do
           assert_raises Funes::UnknownMaterializationModel do
-            basic_projection.materialize!(events_log, "some-id")
+            basic_projection_without_materialization_model.materialize!(events_log, "some-id")
           end
         end
       end

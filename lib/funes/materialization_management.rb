@@ -13,17 +13,12 @@ module Funes
     end
 
     def persist_based_on!(state)
-      @materialization_model.upsert(state, unique_by: :idx)
+      @materialization_model.upsert(state.attributes, unique_by: :idx)
     end
 
     private
       def materialized_instance_based_on(state)
-        @materialization_model.new(state)
-      end
-
-      def valid_attributes_on(state)
-        materialization_model_attributes = @materialization_model.attribute_names.map(&:to_sym)
-        state.slice(*materialization_model_attributes)
+        @materialization_model.new(state.attributes)
       end
   end
 end
