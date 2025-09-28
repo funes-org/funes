@@ -29,7 +29,9 @@ module Funes
         return new_event
       end
       # TODO esboçar como fazer a operação atômica para as "projeções transacionais" que eu espero nesse ponto
-      self.class.transactional_projections.each { |projection_class| projection_class.materialize!(events, @idx) }
+      self.class.transactional_projections.each do |projection_class|
+        Funes::PersistProjectionJob.perform_now(@idx, projection_class)
+      end
       new_event
     end
 
