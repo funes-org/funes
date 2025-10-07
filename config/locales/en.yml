@@ -1,0 +1,4 @@
+en:
+  funes:
+    events:
+      racing_condition_on_insert: "The current event led to an invalid state"

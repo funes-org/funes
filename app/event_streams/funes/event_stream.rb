@@ -15,6 +15,14 @@ module Funes
     def set_transactional_projection(projection)
       transactional_projections << projection
     end
+
+    def async_projections
+      @async_projections ||= []
+    end
+
+    def add_async_projection(projection, **options)
+      async_projections << { class: projection, options: }
+    end
   end
 
   class EventStream
@@ -23,25 +31,21 @@ module Funes
     def append!(new_event)
       return new_event unless new_event.valid?
 
+      # TODO: a projeção de consistência não deveria ser obrigatória
+
       if compute_projection_with_new_event(self.class.consistency_projection, new_event).valid?
-        @instance_new_events << new_event.persist!(@idx, incremented_version)
+        begin
+          @instance_new_events << new_event.persist!(@idx, incremented_version)
+        rescue ActiveRecord::RecordNotUnique
+          new_event.errors.add(:base, I18n.t("funes.events.racing_condition_on_insert"))
+        end
       else
         return new_event
       end
-      # TODO esboçar como fazer a operação atômica para as "projeções transacionais" que eu espero nesse ponto
-      self.class.transactional_projections.each do |projection_class|
-        Funes::PersistProjectionJob.perform_now(@idx, projection_class)
-      end
+      run_transactional_projections
+      schedule_async_projections
+
       new_event
-    end
-
-    # TODO this should be moved to the projection:
-    # SomeProjection.process(SomeEventStream.with_id('foo').events + [new_event]) - can be wroth to
-    # have a helper to concat events to a given event stream
-    def expeculative_append(new_event, projection)
-      return new_event unless new_event.valid?
-
-      compute_projection_with_new_event(projection, new_event)
     end
 
     def initialize(entity_id, as_of = nil)
@@ -59,9 +63,21 @@ module Funes
     end
 
     private
+      def run_transactional_projections
+        self.class.transactional_projections.each do |projection_class|
+          Funes::PersistProjectionJob.perform_now(@idx, projection_class)
+        end
+      end
+
+      def schedule_async_projections
+        self.class.async_projections.each do |projection|
+          Funes::PersistProjectionJob.set(projection[:options]).perform_later(@idx, projection[:class])
+        end
+      end
+
       def previous_events
         @previous_events ||= Funes::EventEntry
-                               .where(idx:  @idx, created_at: [ ..@as_of ])
+                               .where(idx: @idx, created_at: [ ..@as_of ])
                                .order(:created_at)
       end
 
@@ -71,11 +87,9 @@ module Funes
 
       def compute_projection_with_new_event(projection_class, new_event)
         materialization = projection_class.process_events(events + [ new_event ])
-
         unless materialization.valid?
-          materialization.errors.each do |err|
-            new_event.errors.add(:base, "#{err.type.to_sym}_on_consistency_projection_#{err.type}".to_sym, **err.options)
-          end
+          new_event.event_errors = new_event.errors
+          new_event.adjacent_state_errors = materialization.errors
         end
 
         materialization
