@@ -1,26 +1,26 @@
 module Funes
   class Projection
     class << self
-      def set_interpretation_for(event_type, &block)
+      def interpretation_for(event_type, &block)
         @interpretations ||= {}
         @interpretations[event_type] = block
       end
 
-      def set_initial_state(&block)
+      def initial_state(&block)
         @interpretations ||= {}
         @interpretations[:init] = block
       end
 
-      def set_wrap_up_function(&block)
+      def final_state(&block)
         @interpretations ||= {}
         @interpretations[:final] = block
       end
 
-      def set_materialization_model(active_record_or_model)
+      def materialization_model(active_record_or_model)
         @materialization_model = active_record_or_model
       end
 
-      def not_ignore_unknown_event_types
+      def raise_on_unknown_events
         @throws_on_unknown_events = true
       end
 

@@ -13,16 +13,16 @@ class ProjectionTest < ActiveSupport::TestCase
   module BasicInterpretations4CurrentTest
     def self.included(base)
       base.class_eval do
-        set_initial_state do |materialization_model|
+        initial_state do |materialization_model|
           materialization_model.new
         end
 
-        set_interpretation_for Events4CurrentTest::Start do |state, event|
+        interpretation_for Events4CurrentTest::Start do |state, event|
           state.assign_attributes(value: event.value)
           state
         end
 
-        set_interpretation_for Events4CurrentTest::Add do |state, event|
+        interpretation_for Events4CurrentTest::Add do |state, event|
           state.assign_attributes(value: state.value + event.value)
           state
         end
@@ -38,7 +38,7 @@ class ProjectionTest < ActiveSupport::TestCase
   end
 
   basic_projection = Class.new(Funes::Projection) do
-    set_materialization_model activemodel_materialization
+    materialization_model activemodel_materialization
 
     include BasicInterpretations4CurrentTest
   end
@@ -85,8 +85,8 @@ class ProjectionTest < ActiveSupport::TestCase
 
     it "raises an exception when processing unknown events with strict configuration enabled" do
       projection_that_does_not_ignore_unknown_events = Class.new(Funes::Projection) do
-        not_ignore_unknown_event_types
-        set_materialization_model activemodel_materialization
+        raise_on_unknown_events
+        materialization_model activemodel_materialization
 
         include BasicInterpretations4CurrentTest
       end
@@ -100,13 +100,13 @@ class ProjectionTest < ActiveSupport::TestCase
 
   describe "persistence management" do
     projection_with_activemodel_as_materialization_model = Class.new(Funes::Projection) do
-      set_materialization_model activemodel_materialization
+      materialization_model activemodel_materialization
 
       include BasicInterpretations4CurrentTest
     end
 
     projection_with_activerecord_as_materialization_model = Class.new(Funes::Projection) do
-      set_materialization_model UnitTests::Materialization
+      materialization_model UnitTests::Materialization
 
       include BasicInterpretations4CurrentTest
     end

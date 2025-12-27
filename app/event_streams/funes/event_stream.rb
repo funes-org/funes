@@ -1,11 +1,11 @@
 module Funes
   class EventStream
     class << self
-      def set_consistency_projection(projection)
+      def consistency_projection(projection)
         @consistency_projection = projection
       end
 
-      def set_transactional_projection(projection)
+      def add_transactional_projection(projection)
         @transactional_projections ||= []
         @transactional_projections << projection
       end
@@ -15,7 +15,7 @@ module Funes
         @async_projections << { class: projection, options: options }
       end
 
-      def with_id(idx, as_of = nil)
+      def for(idx, as_of = nil)
         new(idx, as_of)
       end
     end

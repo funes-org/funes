@@ -12,11 +12,11 @@ module Examples
                    Examples::Debt::Paid.new(value: 80, discount: 30, at: Date.new(2025, 2, 15)) ]
 
         assert_difference -> { Funes::EventEntry.count }, 1 do
-          Examples::DebtEventStream.with_id("hadouken").append! events.first
+          Examples::DebtEventStream.for("hadouken").append! events.first
         end
 
         assert_no_difference -> { Funes::EventEntry.count } do
-          Examples::DebtEventStream.with_id("hadouken").append! events.second
+          Examples::DebtEventStream.for("hadouken").append! events.second
         end
 
         assert_not_empty events.second.errors.map(&:type)
@@ -28,7 +28,7 @@ module Examples
         invalid_event = Examples::Debt::Issued.new(value: -100, at: Date.today)
 
         assert_no_difference -> { Funes::EventEntry.count } do
-          Examples::DebtEventStream.with_id("hadouken").append! invalid_event
+          Examples::DebtEventStream.for("hadouken").append! invalid_event
         end
 
         assert_not_empty invalid_event.errors.map(&:type)
@@ -37,9 +37,9 @@ module Examples
       end
 
       it "handles concurrent writes for two stream instances sharing the same stream state" do
-        Examples::DebtEventStream.with_id("hadouken").append! Examples::Debt::Issued.new(value: 100, at: Date.new(2025, 1, 1))
-        first_stream_instance = Examples::DebtEventStream.with_id("hadouken")
-        second_stream_instance = Examples::DebtEventStream.with_id("hadouken")
+        Examples::DebtEventStream.for("hadouken").append! Examples::Debt::Issued.new(value: 100, at: Date.new(2025, 1, 1))
+        first_stream_instance = Examples::DebtEventStream.for("hadouken")
+        second_stream_instance = Examples::DebtEventStream.for("hadouken")
 
         assert_difference -> { Funes::EventEntry.count }, 1 do
           first_stream_instance.append! Examples::Debt::Paid.new(value: 50, discount: 0, at: Date.new(2025, 2, 15))

@@ -18,25 +18,25 @@ class StateValidationTest < ActiveSupport::TestCase
   end
 
   class ConsistencyProjection < Funes::Projection
-    set_materialization_model ConsistencyModel
+    materialization_model ConsistencyModel
 
-    set_initial_state do |materialization_model|
+    initial_state do |materialization_model|
       materialization_model.new
     end
 
-    set_interpretation_for Events4CurrentTest::Start do |state, event|
+    interpretation_for Events4CurrentTest::Start do |state, event|
       state.assign_attributes(realized_value: event.value)
       state
     end
 
-    set_interpretation_for Events4CurrentTest::Add do |state, event|
+    interpretation_for Events4CurrentTest::Add do |state, event|
       state.assign_attributes(realized_value: state.realized_value + event.value)
       state
     end
   end
 
   class SubjectEventStream < Funes::EventStream
-    set_consistency_projection ConsistencyProjection
+    consistency_projection ConsistencyProjection
   end
 
   describe "when the state validation fails" do
@@ -45,13 +45,13 @@ class StateValidationTest < ActiveSupport::TestCase
 
       it "does not persist the new event in the event log" do
         assert_no_difference -> { Funes::EventEntry.count } do
-          SubjectEventStream.with_id("hadouken").append!(event_that_led_to_invalid_state)
+          SubjectEventStream.for("hadouken").append!(event_that_led_to_invalid_state)
         end
       end
 
       describe "error management" do
         before do
-          SubjectEventStream.with_id("hadouken").append!(event_that_led_to_invalid_state)
+          SubjectEventStream.for("hadouken").append!(event_that_led_to_invalid_state)
         end
 
         it { assert_equal(event_that_led_to_invalid_state.errors.size, 1) }
@@ -76,20 +76,20 @@ class StateValidationTest < ActiveSupport::TestCase
 
     describe "on a previously created stream" do
       before do
-        SubjectEventStream.with_id("hadouken").append!(Events4CurrentTest::Start.new(value: 0))
+        SubjectEventStream.for("hadouken").append!(Events4CurrentTest::Start.new(value: 0))
       end
 
       event_that_led_to_invalid_state = Events4CurrentTest::Add.new(value: -1)
 
       it "does not persist the event in the event log" do
         assert_no_difference -> { Funes::EventEntry.count } do
-          SubjectEventStream.with_id("hadouken").append!(event_that_led_to_invalid_state)
+          SubjectEventStream.for("hadouken").append!(event_that_led_to_invalid_state)
         end
       end
 
       describe "error management" do
         before do
-          SubjectEventStream.with_id("hadouken").append!(event_that_led_to_invalid_state)
+          SubjectEventStream.for("hadouken").append!(event_that_led_to_invalid_state)
         end
 
         it { assert_equal(event_that_led_to_invalid_state.errors.size, 1) }
@@ -118,13 +118,13 @@ class StateValidationTest < ActiveSupport::TestCase
 
     it "persists the new event in the event log" do
       assert_difference -> { Funes::EventEntry.count }, 1 do
-        SubjectEventStream.with_id("hadouken").append!(valid_event)
+        SubjectEventStream.for("hadouken").append!(valid_event)
       end
     end
 
     describe "error management" do
       before do
-        SubjectEventStream.with_id("hadouken").append!(valid_event)
+        SubjectEventStream.for("hadouken").append!(valid_event)
       end
 
       it { assert_empty valid_event.state_errors }

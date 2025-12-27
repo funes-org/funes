@@ -1,7 +1,7 @@
 module Funes
   class PersistProjectionJob < ApplicationJob
     def perform(event_stream_idx, projection_class, as_of = nil)
-      event_stream = EventStream.with_id(event_stream_idx, as_of)
+      event_stream = EventStream.for(event_stream_idx, as_of)
       projection_class.materialize!(event_stream.events, event_stream.idx, as_of)
     end
   end
