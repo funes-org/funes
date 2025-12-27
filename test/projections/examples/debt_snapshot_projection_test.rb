@@ -54,7 +54,7 @@ module Examples
                  Examples::Debt::Paid.new(value: 50, discount: 1.5, at: Date.new(2025, 3, 15)) ]
 
       it "processes all events and results in zero balance after the last payment" do
-        computed_model = Examples::DebtSnapshotProjection.process_events(events)
+        computed_model = Examples::DebtSnapshotProjection.process_events(events, Time.current)
 
         assert_instance_of Examples::DebtVirtualSnapshot, computed_model
         assert_equal computed_model.issued_value, 100

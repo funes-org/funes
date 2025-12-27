@@ -24,7 +24,7 @@ module Funes
         @throws_on_unknown_events = true
       end
 
-      def process_events(events_collection, as_of = nil)
+      def process_events(events_collection, as_of)
         new(self.instance_variable_get(:@interpretations),
             self.instance_variable_get(:@materialization_model),
             self.instance_variable_get(:@throws_on_unknown_events))

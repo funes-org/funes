@@ -63,14 +63,16 @@ class ProjectionTest < ActiveSupport::TestCase
     it "accumulates state changes correctly when processing a sequence of events" do
       state = basic_projection.process_events([ Events4CurrentTest::Start.new(value: 5),
                                                 Events4CurrentTest::Add.new(value: 4),
-                                                Events4CurrentTest::Add.new(value: 2) ])
+                                                Events4CurrentTest::Add.new(value: 2) ],
+                                              Time.current)
       assert_equal 11, state.value
     end
 
     it "ignores unknown events while continuing to process valid events in the sequence" do
       state = basic_projection.process_events([ Events4CurrentTest::Start.new(value: 5),
                                                 Events4CurrentTest::Unknown.new,
-                                                Events4CurrentTest::Add.new(value: 2) ])
+                                                Events4CurrentTest::Add.new(value: 2) ],
+                                              Time.current)
       assert_equal 7, state.value
     end
   end
@@ -79,7 +81,8 @@ class ProjectionTest < ActiveSupport::TestCase
     it "silently ignores unknown events by default without raising exceptions" do
       assert_nothing_raised do
         basic_projection.process_events([ Events4CurrentTest::Start.new(value: 5),
-                                          Events4CurrentTest::Unknown.new ])
+                                          Events4CurrentTest::Unknown.new ],
+                                        Time.current)
       end
     end
 
@@ -93,7 +96,8 @@ class ProjectionTest < ActiveSupport::TestCase
 
       assert_raises Funes::UnknownEvent do
         projection_that_does_not_ignore_unknown_events.process_events([ Events4CurrentTest::Start.new(value: 5),
-                                                                        Events4CurrentTest::Unknown.new ])
+                                                                        Events4CurrentTest::Unknown.new ],
+                                                                      Time.current)
       end
     end
   end
