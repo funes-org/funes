@@ -32,13 +32,15 @@ class AsyncProjectionsMaterializationTest < ActiveSupport::TestCase
       end
 
       it "enqueues the persistence job (`perform_later`) with no job options" do
-        as_of_time = Time.current
+        as_of_time = Time.zone.local(2026, 1, 1, 12, 0, 0)
         perform_later_mock = Minitest::Mock.new.expect(:perform_later, true, [ "my-identifier", AsyncProjection, as_of_time ])
         set_mock = Minitest::Mock.new.expect(:call, perform_later_mock, [ {} ])
 
-        Funes::PersistProjectionJob.stub(:set, set_mock) do
-          event = DummyEvent.new(value: 42)
-          EventStreamWithSingleAsyncProjection.with_id("my-identifier", as_of_time).append!(event)
+        travel_to(as_of_time) do
+          Funes::PersistProjectionJob.stub(:set, set_mock) do
+            event = DummyEvent.new(value: 42)
+            EventStreamWithSingleAsyncProjection.with_id("my-identifier", as_of_time).append!(event)
+          end
         end
 
         assert_mock set_mock
@@ -53,27 +55,31 @@ class AsyncProjectionsMaterializationTest < ActiveSupport::TestCase
       end
 
       it "correctly configures the persistence job options through the `set` method" do
-        as_of_time = Time.current
+        as_of_time = Time.zone.local(2026, 1, 1, 12, 0, 0)
         set_mock = Minitest::Mock.new.expect(:call, Minitest::Mock.new.expect(:perform_later, true, [ "my-identifier", AsyncProjection, as_of_time ]),
                                              [ { queue: :default, wait_until: Time.current.tomorrow.midnight } ])
 
-        Funes::PersistProjectionJob.stub(:set, set_mock) do
-          event = DummyEvent.new(value: 42)
-          EventStreamWithSingleAsyncProjectionAndOptions.with_id("my-identifier", as_of_time).append!(event)
+        travel_to(as_of_time) do
+          Funes::PersistProjectionJob.stub(:set, set_mock) do
+            event = DummyEvent.new(value: 42)
+            EventStreamWithSingleAsyncProjectionAndOptions.with_id("my-identifier", as_of_time).append!(event)
+          end
         end
 
         assert_mock set_mock
       end
 
       it "enqueues the persistence job sending the correct parameters to `perform_later`" do
-        as_of_time = Time.current
+        as_of_time = Time.zone.local(2026, 1, 1, 12, 0, 0)
         perform_later_mock = Minitest::Mock.new.expect(:perform_later, true, [ "my-identifier", AsyncProjection, as_of_time ])
         set_mock = Minitest::Mock.new.expect(:call, perform_later_mock, [ { queue: :default,
                                                                             wait_until: Time.current.tomorrow.midnight } ])
 
-        Funes::PersistProjectionJob.stub(:set, set_mock) do
-          event = DummyEvent.new(value: 42)
-          EventStreamWithSingleAsyncProjectionAndOptions.with_id("my-identifier", as_of_time).append!(event)
+        travel_to(as_of_time) do
+          Funes::PersistProjectionJob.stub(:set, set_mock) do
+            event = DummyEvent.new(value: 42)
+            EventStreamWithSingleAsyncProjectionAndOptions.with_id("my-identifier", as_of_time).append!(event)
+          end
         end
 
         assert_mock perform_later_mock
@@ -88,23 +94,25 @@ class AsyncProjectionsMaterializationTest < ActiveSupport::TestCase
     end
 
     it "correctly configures the persistence job options through the `set` method for each projection" do
-      as_of_time = Time.current
+      as_of_time = Time.zone.local(2026, 1, 1, 12, 0, 0)
       set_mock = Minitest::Mock.new
       set_mock.expect(:call, Minitest::Mock.new.expect(:perform_later, true, [ "my-identifier", AsyncProjection, as_of_time ]),
                       [ { queue: :urgent } ])
       set_mock.expect(:call, Minitest::Mock.new.expect(:perform_later, true, [ "my-identifier", SecondAsyncProjection, as_of_time ]),
                       [ { queue: :default } ])
 
-      Funes::PersistProjectionJob.stub(:set, set_mock) do
-        event = DummyEvent.new(value: 42)
-        StreamWithMultipleAsyncProjections.with_id("my-identifier", as_of_time).append!(event)
+      travel_to(as_of_time) do
+        Funes::PersistProjectionJob.stub(:set, set_mock) do
+          event = DummyEvent.new(value: 42)
+          StreamWithMultipleAsyncProjections.with_id("my-identifier", as_of_time).append!(event)
+        end
       end
 
       assert_mock set_mock
     end
 
     it "enqueues the persistence job (`perform_later`) with the correct options for each projection" do
-      as_of_time = Time.current
+      as_of_time = Time.zone.local(2026, 1, 1, 12, 0, 0)
       perform_later_mock = Minitest::Mock.new
       perform_later_mock.expect(:perform_later, true, [ "my-identifier", AsyncProjection, as_of_time ])
       perform_later_mock.expect(:perform_later, true, [ "my-identifier", SecondAsyncProjection, as_of_time ])
@@ -112,9 +120,11 @@ class AsyncProjectionsMaterializationTest < ActiveSupport::TestCase
                                .expect(:call, perform_later_mock, [ { queue: :urgent } ])
                                .expect(:call, perform_later_mock, [ { queue: :default } ])
 
-      Funes::PersistProjectionJob.stub(:set, set_stub) do
-        event = DummyEvent.new(value: 42)
-        StreamWithMultipleAsyncProjections.with_id("my-identifier", as_of_time).append!(event)
+      travel_to(as_of_time) do
+        Funes::PersistProjectionJob.stub(:set, set_stub) do
+          event = DummyEvent.new(value: 42)
+          StreamWithMultipleAsyncProjections.with_id("my-identifier", as_of_time).append!(event)
+        end
       end
 
       assert_mock perform_later_mock

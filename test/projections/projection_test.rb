@@ -119,7 +119,7 @@ class ProjectionTest < ActiveSupport::TestCase
       describe "when there is no materialization model set" do
         it "raises UnknownMaterializationModel when no materialization model is set" do
           assert_raises Funes::UnknownMaterializationModel do
-            basic_projection_without_materialization_model.materialize!(events_log, "some-id")
+            basic_projection_without_materialization_model.materialize!(events_log, "some-id", Time.current)
           end
         end
       end
@@ -127,7 +127,7 @@ class ProjectionTest < ActiveSupport::TestCase
       describe "when the materialization model is an Active model" do
         it "returns an instance with the computed attribute values" do
           materialized_return = projection_with_activemodel_as_materialization_model
-                                  .materialize!(events_log, "some-id")
+                                  .materialize!(events_log, "some-id", Time.current)
 
           assert_instance_of activemodel_materialization, materialized_return
           assert_equal materialized_return.value, 11
@@ -137,38 +137,38 @@ class ProjectionTest < ActiveSupport::TestCase
       describe "when the materialization model is an ActiveRecord subclass" do
         it "returns an instance of the materialization model" do
           materialized_return = projection_with_activerecord_as_materialization_model
-                                  .materialize!(events_log, "some-id")
+                                  .materialize!(events_log, "some-id", Time.current)
 
           assert_instance_of UnitTests::Materialization, materialized_return
         end
 
         it "creates the expected record in the database" do
           assert_difference -> { UnitTests::Materialization.count }, 1 do
-            projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id")
+            projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id", Time.current)
           end
           assert UnitTests::Materialization.find_by(idx: "some-id")
         end
 
         it "persists and returns the materialized data based on the projection computation" do
-          projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id")
+          projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id", Time.current)
 
           assert_equal UnitTests::Materialization.find_by(idx: "some-id").values_at(:idx, :value), [ "some-id", 11 ]
         end
 
         describe "when a record of the materialization is already persisted" do
           it "does not create a duplicate record when one already exists" do
-            projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id")
+            projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id", Time.current)
 
             assert_no_difference -> { UnitTests::Materialization.count } do
-              projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id")
+              projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id", Time.current)
             end
           end
 
           it "updates the previously persisted record when the computed data changes" do
-            projection_with_activerecord_as_materialization_model.materialize!(events_log.take(2), "some-id")
+            projection_with_activerecord_as_materialization_model.materialize!(events_log.take(2), "some-id", Time.current)
             assert_equal UnitTests::Materialization.find_by(idx: "some-id").values_at(:idx, :value), [ "some-id", 9 ]
 
-            projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id")
+            projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id", Time.current)
             assert_equal UnitTests::Materialization.find_by(idx: "some-id").values_at(:idx, :value), [ "some-id", 11 ]
           end
         end

@@ -51,13 +51,14 @@ module Funes
     private
       def run_transactional_projections
         transactional_projections.each do |projection_class|
-          Funes::PersistProjectionJob.perform_now(self, projection_class)
+          Funes::PersistProjectionJob.perform_now(@idx, projection_class, last_event_creation_date)
         end
       end
 
       def schedule_async_projections
         async_projections.each do |projection|
-          Funes::PersistProjectionJob.set(projection[:options]).perform_later(@idx, projection[:class], @as_of)
+          Funes::PersistProjectionJob.set(projection[:options]).perform_later(@idx, projection[:class],
+                                                                              last_event_creation_date)
         end
       end
 
@@ -65,6 +66,10 @@ module Funes
         @previous_events ||= Funes::EventEntry
                                .where(idx: @idx, created_at: ..@as_of)
                                .order('created_at')
+      end
+
+      def last_event_creation_date
+        (@instance_new_events.last || previous_events.last).created_at
       end
 
       def incremented_version

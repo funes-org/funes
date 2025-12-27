@@ -32,12 +32,15 @@ class TransactionalProjectionsMaterializationTest < ActiveSupport::TestCase
 
     it "calls the persistence job (`perform_now`) for the projection" do
       event_stream_instance = EventStreamWithSingleTransactionalProjection.with_id("my-identifier")
+      event_creation_time = Time.zone.local(2026, 1, 1, 12, 0, 0)
       mock = Minitest::Mock.new
-      mock.expect(:call, true, [ event_stream_instance, TransactionalProjection ])
+      mock.expect(:call, true, [ "my-identifier", TransactionalProjection, event_creation_time ])
 
-      Funes::PersistProjectionJob.stub(:perform_now, mock) do
-        event = DummyEvent.new(value: 42)
-        event_stream_instance.append!(event)
+      travel_to(event_creation_time) do
+        Funes::PersistProjectionJob.stub(:perform_now, mock) do
+          event = DummyEvent.new(value: 42)
+          event_stream_instance.append!(event)
+        end
       end
 
       assert_mock mock
@@ -52,13 +55,16 @@ class TransactionalProjectionsMaterializationTest < ActiveSupport::TestCase
 
     it "calls the persistence job (`perform_now`) for each transactional projection" do
       event_stream_instance = EventStreamWithMultipleTransactionalProjection.with_id("my-identifier")
+      event_creation_time = Time.zone.local(2026, 1, 1, 12, 0, 0)
       mock = Minitest::Mock.new
-      mock.expect(:call, true, [ event_stream_instance, TransactionalProjection ])
-      mock.expect(:call, true, [ event_stream_instance, SecondTransactionalProjection ])
+      mock.expect(:call, true, [ "my-identifier", TransactionalProjection, event_creation_time ])
+      mock.expect(:call, true, [ "my-identifier", SecondTransactionalProjection, event_creation_time ])
 
-      Funes::PersistProjectionJob.stub(:perform_now, mock) do
-        event = DummyEvent.new(value: 42)
-        event_stream_instance.append!(event)
+      travel_to(event_creation_time) do
+        Funes::PersistProjectionJob.stub(:perform_now, mock) do
+          event = DummyEvent.new(value: 42)
+          event_stream_instance.append!(event)
+        end
       end
 
       assert_mock mock

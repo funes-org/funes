@@ -31,11 +31,11 @@ module Funes
           .process_events(events_collection, as_of)
       end
 
-      def materialize!(events_collection, idx)
+      def materialize!(events_collection, idx, as_of)
         new(self.instance_variable_get(:@interpretations),
             self.instance_variable_get(:@materialization_model),
             self.instance_variable_get(:@throws_on_unknown_events))
-          .materialize!(events_collection, idx)
+          .materialize!(events_collection, idx, as_of)
       end
     end
 
@@ -61,11 +61,11 @@ module Funes
       state
     end
 
-    def materialize!(events_collection, idx)
+    def materialize!(events_collection, idx, as_of)
       raise Funes::UnknownMaterializationModel,
             "There is no materialization model configured on #{self.class.name}" unless @materialization_model.present?
 
-      state = process_events(events_collection, nil) # @TODO Esse as-of é muito importante!
+      state = process_events(events_collection, as_of)
       materialized_model_instance = materialized_model_instance_based_on(state)
       if materialization_model_is_persistable?
         state.assign_attributes(idx:)
