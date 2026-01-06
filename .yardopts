@@ -1,0 +1,8 @@
+--markup markdown
+--markup-provider redcarpet
+--readme README.md
+--title "Funes - Event Sourcing for Rails"
+app/**/*.rb
+lib/**/*.rb
+-
+README.md

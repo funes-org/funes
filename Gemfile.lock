@@ -191,6 +191,7 @@ GEM
     rdoc (6.14.2)
       erb
       psych (>= 4.0.0)
+    redcarpet (3.6.1)
     regexp_parser (2.10.0)
     reline (0.6.1)
       io-console (~> 0.5)
@@ -239,6 +240,7 @@ GEM
       base64
       websocket-extensions (>= 0.1.0)
     websocket-extensions (0.1.5)
+    yard (0.9.38)
     zeitwerk (2.7.3)
 
 PLATFORMS
@@ -249,8 +251,10 @@ DEPENDENCIES
   funes!
   propshaft
   puma
+  redcarpet
   rubocop-rails-omakase
   sqlite3
+  yard
 
 BUNDLED WITH
    2.5.11

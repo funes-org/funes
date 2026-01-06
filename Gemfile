@@ -16,3 +16,6 @@ gem "rubocop-rails-omakase", require: false
 # gem "debug", ">= 1.0.0"
 
 gem "database_cleaner-active_record"
+
+gem 'yard', group: :development
+gem 'redcarpet', group: :development
