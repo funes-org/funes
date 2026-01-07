@@ -31,6 +31,8 @@ namespace :docs do
 
   desc "Build version selector index page"
   task :build_index do
+    require "erb"
+
     versions = Dir.glob("docs/v*").map { |d| File.basename(d) }.sort.reverse
 
     if versions.empty?
@@ -39,46 +41,9 @@ namespace :docs do
     end
 
     latest_version = versions.first
-
-    html = <<~HTML
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta http-equiv="refresh" content="0; url=#{latest_version}/index.html">
-        <title>Funes Documentation</title>
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            max-width: 800px;
-            margin: 50px auto;
-            padding: 20px;
-            text-align: center;
-          }
-          .message {
-            margin-top: 100px;
-            color: #666;
-          }
-          a {
-            color: #0066cc;
-            text-decoration: none;
-          }
-          a:hover {
-            text-decoration: underline;
-          }
-        </style>
-        <script>
-          window.location.href = "#{latest_version}/index.html";
-        </script>
-      </head>
-      <body>
-        <div class="message">
-          <p>Redirecting to the latest version (#{latest_version})...</p>
-          <p>If you are not redirected, <a href="#{latest_version}/index.html">click here</a>.</p>
-        </div>
-      </body>
-      </html>
-    HTML
+    template_path = File.expand_path("lib/templates/docs_index.html.erb", __dir__)
+    template = ERB.new(File.read(template_path))
+    html = template.result(binding)
 
     File.write("docs/index.html", html)
     puts "Version index page created at docs/index.html"
