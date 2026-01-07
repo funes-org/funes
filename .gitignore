@@ -1,5 +1,6 @@
 /.bundle/
 /doc/
+/docs/
 /.yardoc/
 /log/*.log
 /pkg/

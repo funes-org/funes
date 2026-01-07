@@ -176,17 +176,5 @@ class StrictProjection < Funes::Projection
 end
 ```
 
-## Documentation
-
-API documentation is generated using [YARD](https://yardoc.org/). To generate and view the docs locally:
-
-```bash
-# Generate documentation
-$ yard doc
-
-# Start the documentation server
-$ yard server
-```
-
 ## License
 The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
