@@ -18,7 +18,7 @@ This gives you:
 Add to your Gemfile:
 
 ```ruby
-gem "funes"
+gem "funes-rails"
 ```
 
 Run the installation:

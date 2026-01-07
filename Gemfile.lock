@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    funes (0.1.0)
+    funes-rails (0.1.0)
       rails (>= 8.0.2.1)
 
 GEM
@@ -130,6 +130,8 @@ GEM
     nio4r (2.7.4)
     nokogiri (1.18.8-arm64-darwin)
       racc (~> 1.4)
+    nokogiri (1.18.8-x86_64-linux-gnu)
+      racc (~> 1.4)
     parallel (1.27.0)
     parser (3.3.8.0)
       ast (~> 2.4.1)
@@ -226,6 +228,7 @@ GEM
     ruby-progressbar (1.13.0)
     securerandom (0.4.1)
     sqlite3 (2.7.2-arm64-darwin)
+    sqlite3 (2.7.2-x86_64-linux-gnu)
     stringio (3.1.7)
     thor (1.3.2)
     timeout (0.4.3)
@@ -245,10 +248,11 @@ GEM
 
 PLATFORMS
   arm64-darwin
+  x86_64-linux
 
 DEPENDENCIES
   database_cleaner-active_record
-  funes!
+  funes-rails!
   propshaft
   puma
   redcarpet

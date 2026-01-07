@@ -1,7 +1,7 @@
 require_relative "lib/funes/version"
 
 Gem::Specification.new do |spec|
-  spec.name        = "funes"
+  spec.name        = "funes-rails"
   spec.version     = Funes::VERSION
   spec.authors     = [ "Vinícius Almeida da Silva" ]
   spec.homepage    = "https://funes.org/"
