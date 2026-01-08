@@ -165,14 +165,18 @@ module Funes
       return new_event unless new_event.valid?
       return new_event if consistency_projection.present? &&
                           compute_projection_with_new_event(consistency_projection, new_event).invalid?
-      begin
-        @instance_new_events << new_event.persist!(@idx, incremented_version)
-      rescue ActiveRecord::RecordNotUnique
-        new_event.errors.add(:base, I18n.t("funes.events.racing_condition_on_insert"))
+
+      ActiveRecord::Base.transaction do
+        begin
+          @instance_new_events << new_event.persist!(@idx, incremented_version)
+          run_transactional_projections
+        rescue ActiveRecord::RecordNotUnique, Funes::TransactionalProjectionFailed
+          new_event.errors.add(:base, I18n.t("funes.events.racing_condition_on_insert"))
+          raise ActiveRecord::Rollback
+        end
       end
 
-      run_transactional_projections
-      schedule_async_projections
+      schedule_async_projections unless new_event.errors.any?
 
       new_event
     end
@@ -202,8 +206,12 @@ module Funes
 
     private
       def run_transactional_projections
-        transactional_projections.each do |projection_class|
-          Funes::PersistProjectionJob.perform_now(@idx, projection_class, last_event_creation_date)
+        begin
+          transactional_projections.each do |projection_class|
+            Funes::PersistProjectionJob.perform_now(@idx, projection_class, last_event_creation_date)
+          end
+        rescue ActiveRecord::StatementInvalid => e
+          raise Funes::TransactionalProjectionFailed, e.message
         end
       end
 
