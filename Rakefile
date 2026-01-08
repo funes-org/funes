@@ -17,24 +17,6 @@ namespace :docs do
     puts "Generating documentation for version #{version}..."
     system("yard doc --output-dir #{output_dir}") || abort("Failed to generate documentation")
 
-    # Disable AJAX navigation in app.js to fix menu issues with versioned URLs
-    app_js_path = "#{output_dir}/js/app.js"
-    if File.exist?(app_js_path)
-      content = File.read(app_js_path)
-
-      # Find and disable the navigate message handler
-      # This forces the menu to use plain HTML links instead of AJAX
-      if content =~ /window\.addEventListener\(\s*["']message["']/
-        # Simply prevent the fetch by checking for the navigate action and returning early
-        content = content.gsub(
-          /(if \(e\.data\.action === ["']navigate["']\) \{)/,
-          'if (e.data.action === "navigate") { return; // Disabled for versioned URL compatibility'
-        )
-        File.write(app_js_path, content)
-        puts "Disabled AJAX navigation in app.js for reliable menu links"
-      end
-    end
-
     # Copy assets to root docs directory
     FileUtils.mkdir_p("docs")
     %w[css js].each do |asset_dir|

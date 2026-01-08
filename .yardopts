@@ -2,6 +2,8 @@
 --markup-provider redcarpet
 --readme README.md
 --title "Funes - Event Sourcing for Rails"
+--template-path .yardoc_templates
+--template default
 lib/funes.rb
 lib/funes/unknown_event.rb
 lib/funes/unknown_materialization_model.rb
