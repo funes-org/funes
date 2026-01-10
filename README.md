@@ -49,6 +49,30 @@ An **Event** is an immutable representation of a fact. Unlike a traditional mode
 * **No schema impedance:** events are not `ActiveRecord` models; they are a kind of `ActiveModel` instances. This prevents "migration fatigue", as your historical facts never need to change their schema just because your UI requirements did.
 * **Built-in validation:** since events behaves similarly to `ActiveModel`, they carry their own internal validation rules (e.g., ensuring a quantity is present).
 
+```ruby
+module Debt
+  class Issued < Funes::Event
+    attribute :amount, :decimal
+    attribute :interest_rate, :decimal
+    attribute :at, :datetime
+
+    validates_presence_of :at
+    validates :amount, numericality: { greater_than: 0 }
+    validates :interest_rate, numericality: { greater_than_or_equal_to: 0 }
+  end
+
+  class PaymentReceived < Funes::Event
+    attribute :principal_amount, :decimal
+    attribute :interest_amount, :decimal
+    attribute :at, :datetime
+
+    validates_presence_of :at
+    validates :principal_amount, numericality: { greater_than_or_equal_to: 0 }
+    validates :interest_amount, numericality: { greater_than_or_equal_to: 0 }
+  end
+end
+```
+
 ### Projections (the interpretations)
 
 A **Projection** transforms events into a **materialized representation** — the state the application actually consumes.
@@ -56,12 +80,50 @@ A **Projection** transforms events into a **materialized representation** — th
 * **Virtual projections:** these are extensions of `ActiveModel` and exist only in memory. They are calculated on-the-fly, making them ideal for "Consistency Projections" (see the consistency models bellow) used to validate business rules against the current state.
 * **Persistent projections:** these are extensions of `ActiveRecord` and are stored in your database. These are your read nodels, allowing you to perform fast, standard Rails queries on data derived from your history.
 
+```ruby
+class OutstandingBalance
+  include ActiveModel::Model
+  include ActiveModel::Attributes
+
+  attribute :outstanding_balance, :decimal
+  attribute :last_payment_at, :datetime
+
+  validates :outstanding_balance, numericality: { greater_than_or_equal_to: 0 }
+end
+
+class VirtualOutstandingBalanceProjection < Funes::Projection
+  materialization_model OutstandingBalance
+
+  interpretation_for Debt::Issued do |state, issuance_event, as_of|
+    # your logic here to handle the interest curve, update and return the state
+  end
+
+  interpretation_for Debt::PaymentReceived do |state, payment_event|
+    # your logic here to handle the payment effects to update and return the state
+  end
+end
+```
+
 ### Event streams (the orchestrator)
 
 An **Event Stream** is a logical grouping of events (e.g., all events for `Account:42`). It is the primary interface for your log and manages the lifecycle of a change.
 
 * **Double validation:** it ensures an event is valid on its own (Unit) and that it doesn't violate business rules when applied to the current state (State/Consistency).
 * **Consistency tiers:** the stream orchestrates how and when your projections (transactional or async) update.
+
+```ruby
+class DebtEventStream < Funes::EventStream
+  consistency_projection VirtualOutstandingBalanceProjection
+end
+
+valid_event = Debt::Issued.new(amount: 100, interest_rate: 0.05, at: Time.current)
+DebtEventStream.for("debts-identifier").append(valid_event)
+valid_event.errors.empty? # => true
+
+invalid_event = Debt::PaymentReceived.new(principal_amount: 100 interest_amount: 50, at: valid_event.at)
+DebtEventStream.for("debts-identifier").append(invalid_event) # => led to overpayment invalid state
+invalid_event.errors.empty? # => false
+```
 
 ## Three-Tier Consistency Model
 
@@ -100,11 +162,13 @@ Every event is timestamped. Query your stream at any point in time:
 InventoryEventStream.for("sku-12345") # => returns an instance of it with the current state
 InventoryEventStream.for("sku-12345", 1.month.ago) # => returns an instance of it with the state of 1 month ago
 ```
+
 Projections' interpretations receive the `as_of` parameter, so you can build logical point-in-time snapshots:
 
 ```ruby
 interpretation_for(Debt::Issued) do |state, event, as_of|
-  state.assign_attributes(present_value: event.amount * (1 + event.interest_rate) ** periods_between(event.at, as_of)
+  present_value = event.amount * (1 + event.interest_rate) ** periods_between(event.at, as_of)
+  state.assign_attributes(present_value:)
   state
 end
 ```
