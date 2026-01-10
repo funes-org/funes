@@ -92,77 +92,32 @@ Funes gives you fine-grained control over when and how projections run:
   * `:job_time`: uses the current time when the job actually executes.
   * `Proc/Lambda`: allows for custom temporal logic (e.g., rounding to the `beginning_of_day`).
 
-## Temporal Queries
+## Temporal queries
 
 Every event is timestamped. Query your stream at any point in time:
 
-### Current state
 ```ruby
-stream = InventoryEventStream.for("sku-12345")
-stream.events # => all events
+InventoryEventStream.for("sku-12345") # => returns an instance of it with the current state
+InventoryEventStream.for("sku-12345", 1.month.ago) # => returns an instance of it with the state of 1 month ago
 ```
-
-### State as of last month
-```ruby
-stream = InventoryEventStream.for("sku-12345", 1.month.ago)
-stream.events # => events up to that timestamp
-```
-
-Projections receive the as_of parameter, so you can build point-in-time snapshots:
+Projections' interpretations receive the `as_of` parameter, so you can build logical point-in-time snapshots:
 
 ```ruby
-# in your projection
-interpretation_for(Inventory::ItemReceived) do |state, event, as_of|
-  # as_of is available if you need temporal logic
-  state.quantity_on_hand += event.quantity
+interpretation_for(Debt::Issued) do |state, event, as_of|
+  state.assign_attributes(present_value: event.amount * (1 + event.interest_rate) ** periods_between(event.at, as_of)
   state
 end
 ```
 
-## Concurrency
+## Optimistic concurrency control
 
 Funes uses optimistic concurrency control. Each event in a stream gets an incrementing version number with a unique constraint on (idx, version).
 
-If two processes try to append to the same stream simultaneously, one succeeds and the other gets a validation error — no locks, no blocking:
+If two processes try to append to the same stream simultaneously, one succeeds and the other gets a validation error — no locks, no blocking.
 
-```ruby
-event = stream.append!(SomeEvent.new)
-unless event.valid?
-  event.errors[:version] # => ["has already been taken"]
-  # Reload and retry your business logic
-end
-```
+## Strict mode
 
-## Testing
-
-Funes provides helpers for testing projections in isolation:
-
-```ruby
-class InventorySnapshotProjectionTest < ActiveSupport::TestCase
-  include Funes::ProjectionTestHelper
-
-  test "receiving items increases quantity on hand" do
-    initial_state = InventorySnapshot.new(quantity_on_hand: 10)
-    event = Inventory::ItemReceived.new(quantity: 5, unit_cost: 9.99)
-
-    result = interpret_event_based_on(InventorySnapshotProjection, event, initial_state)
-
-    assert_equal 15, result.quantity_on_hand
-  end
-end
-```
-
-## Strict Mode
-
-By default, projections ignore events they don't have interpretations for. Enable strict mode to catch missing handlers:
-
-```ruby
-class StrictProjection < Funes::Projection
-  raise_on_unknown_events
-
-  # Now forgetting to handle an event type raises Funes::UnknownEvent
-end
-```
+By default, projections ignore events they don't have interpretations for. By using `raise_on_unknown_events` you enable strict mode to catch missing handlers. This is specially worth for critical projections.
 
 ## License
 The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
