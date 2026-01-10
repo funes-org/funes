@@ -41,7 +41,7 @@ $ bin/rails db:migrate
 
 Funes bridges the gap between event sourcing theory and the Rails tools you already know (`ActiveModel`, `ActiveRecord`, `ActiveJob`).
 
-![core concepts](concepts.png)
+![core concepts](https://raw.github.com/funes-org/funes/main/concepts.png)
 
 ### Events (the facts)
 
