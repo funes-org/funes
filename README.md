@@ -41,6 +41,8 @@ $ bin/rails db:migrate
 
 Funes bridges the gap between event sourcing theory and the Rails tools you already know (`ActiveModel`, `ActiveRecord`, `ActiveJob`).
 
+![core concepts](concepts.png)
+
 ### Events (the facts)
 
 An **Event** is an immutable representation of a fact. Unlike a traditional model, an event is not "current state" — it is a record of history.
@@ -120,7 +122,7 @@ valid_event = Debt::Issued.new(amount: 100, interest_rate: 0.05, at: Time.curren
 DebtEventStream.for("debts-identifier").append(valid_event)
 valid_event.errors.empty? # => true
 
-invalid_event = Debt::PaymentReceived.new(principal_amount: 100 interest_amount: 50, at: valid_event.at)
+invalid_event = Debt::PaymentReceived.new(principal_amount: 100, interest_amount: 50, at: valid_event.at)
 DebtEventStream.for("debts-identifier").append(invalid_event) # => led to overpayment invalid state
 invalid_event.errors.empty? # => false
 ```
