@@ -73,70 +73,24 @@ Funes gives you fine-grained control over when and how projections run:
 | Transactional Projections | Same DB transaction as event | Critical read models needing strong consistency |
 | Async Projections         | Background job (ActiveJob)   | Reports, analytics, non-critical read models    |
 
-### Consistency Projection
+### Consistency projections
 
-Runs before the event is saved. If the resulting state is invalid, the event is rejected:
+* **Guard your invariants:** these run _before_ the event is saved to the log. If the resulting state (the "virtual projection") is invalid, the event is rejected and never persisted.
+* **Business logic validation:** This is where you prevent "impossible" states, such as shipping more inventory than is available or overdrawing a bank account.
 
-```ruby
-class InventoryEventStream < Funes::EventStream
-  consistency_projection InventorySnapshotProjection
-end
+### Transactional projections
 
-class InventorySnapshot
-  include ActiveModel::Model
-  include ActiveModel::Attributes
+* **Atomic updates:** these update your persistent read models (`ActiveRecord`) within the same database transaction as the event.
+* **Strong consistency:** if the projection fails to update, the entire transaction rolls back. This ensures your critical read models are always in sync with the event log.
 
-  attribute :quantity_on_hand, :integer, default: 0
+### Async projections
 
-  validates :quantity_on_hand, numericality: { greater_than_or_equal_to: 0 }
-end
-```
-
-Now if someone tries to ship more than available:
-
-```ruby
-
-event = stream.append!(Inventory::ItemShipped.new(quantity: 9999))
-event.valid? # => false
-event.errors[:quantity_on_hand] # => ["must be greater than or equal to 0"]
-```
-
-The event is never persisted. Your invariants are protected.
-
-### Transactional Projections
-
-Update read models in the same database transaction. If anything fails, everything rolls back:
-
-```ruby
-add_transactional_projection InventoryLedgerProjection
-```
-
-### Async Projections
-
-Schedule background jobs with full ActiveJob options:
-
-```ruby
-add_async_projection ReportingProjection, queue: :low, wait: 5.minutes
-add_async_projection AnalyticsProjection, wait_until: Date.tomorrow.midnight
-```
-
-#### Controlling the `as_of` Timestamp
-
-By default, async projections use the creation time of the last event. You can customize this behavior:
-
-```ruby
-# Use job execution time instead of event time
-add_async_projection RealtimeProjection, as_of: :job_time
-
-# Custom logic with a proc
-add_async_projection EndOfDayProjection,
-  as_of: ->(last_event) { last_event.created_at.beginning_of_day }
-```
-
-Available `as_of` strategies:
-- `:last_event_time` (default) — Uses the creation time of the last event
-- `:job_time` — Uses `Time.current` when the job executes
-- `Proc/Lambda` — Custom logic that receives the last event and returns a `Time` object
+* **Background processing:** these are offloaded to `ActiveJob`, ensuring that heavy computations don't slow down the write path.
+* **Native integration:** fully compliant with standard Rails job backends (`Sidekiq`, `Solid Queue`, etc.). You can pass standard `ActiveJob` options like `queue`, `wait`, or `wait_until`.
+* **Temporal control (`as_of`):** customize the point-in-time reference for the projection:
+  * `:last_event_time` (Default): uses the creation time of the last event.
+  * `:job_time`: uses the current time when the job actually executes.
+  * `Proc/Lambda`: allows for custom temporal logic (e.g., rounding to the `beginning_of_day`).
 
 ## Temporal Queries
 
