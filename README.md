@@ -1,17 +1,23 @@
 # Funes
 
-Event sourcing for Ruby on Rails — append-only events as your source of truth, with flexible projections for reads.
+An event sourcing meta-framework designed to provide a frictionless experience for RoR developers to build and operate systems where history is as important as the present. Built with the one-person framework philosophy in mind, it honors the Rails doctrine by providing deep **conceptual compression** over what is usually a complex architectural pattern.
+
+By distilling the mechanics of event sourcing into just three core concepts — **Events**, **Streams**, and **Projections** — Funes handles the underlying complexity of persistence and state reconstruction for you. It feels like the Rails you already know, giving you the power of a permanent source of truth with the same ease of use as a standard ActiveRecord model.
 
 ## Event Sourcing?
 
-Traditional Rails apps update state in place. You `update!` a record and the previous value is gone. Event sourcing takes a different approach: store *what happened* as immutable events, then derive current state by replaying them.
+In a typical Rails app, data has no past — only a present. You `update!` a record and the previous value is gone. Event sourcing takes a different approach: store *what happened* as immutable events, then derive current state by replaying them.
 
 This gives you:
 
-- **Complete audit trail** — every state change is recorded, forever
+- **Complete audit trail** — every state change is recorded, _forever_
 - **Temporal queries** — "what was the balance on December 1st?"
-- **Multiple read models** — same events, different projections for different use cases
+- **Multiple read models** — same events, different (decoupled!) projections for different use cases
 - **Safer refactoring** — rebuild any projection from the event log
+
+Event sourcing is a reasonable choice for complex, trackable state machines and for systems where state depends on the observer's moment in time — financial systems, compliance workflows, or anywhere historical data integrity and context are non-negotiable.
+
+> It’s the right choice for any application where "what was true then?" matters as much as "what is true now?"
 
 ## Installation
 
