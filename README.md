@@ -37,6 +37,32 @@ $ bin/rails generate funes:install
 $ bin/rails db:migrate
 ```
 
+## Core concepts
+
+Funes bridges the gap between event sourcing theory and the Rails tools you already know (`ActiveModel`, `ActiveRecord`, `ActiveJob`).
+
+### Events (the facts)
+
+An **Event** is an immutable representation of a fact. Unlike a traditional model, an event is not "current state" — it is a record of history.
+
+* **Fact _vs_ state:** while a `User` model represents who they are now, a `User::Registered` event represents what happened.
+* **No schema impedance:** events are not `ActiveRecord` models; they are a kind of `ActiveModel` instances. This prevents "migration fatigue", as your historical facts never need to change their schema just because your UI requirements did.
+* **Built-in validation:** since events behaves similarly to `ActiveModel`, they carry their own internal validation rules (e.g., ensuring a quantity is present).
+
+### Projections (the interpretations)
+
+A **Projection** transforms events into a **materialized representation** — the state the application actually consumes.
+
+* **Virtual projections:** these are extensions of `ActiveModel` and exist only in memory. They are calculated on-the-fly, making them ideal for "Consistency Projections" (see the consistency models bellow) used to validate business rules against the current state.
+* **Persistent projections:** these are extensions of `ActiveRecord` and are stored in your database. These are your read nodels, allowing you to perform fast, standard Rails queries on data derived from your history.
+
+### Event streams (the orchestrator)
+
+An **Event Stream** is a logical grouping of events (e.g., all events for `Account:42`). It is the primary interface for your log and manages the lifecycle of a change.
+
+* **Double validation:** it ensures an event is valid on its own (Unit) and that it doesn't violate business rules when applied to the current state (State/Consistency).
+* **Consistency tiers:** the stream orchestrates how and when your projections (transactional or async) update.
+
 ## Three-Tier Consistency Model
 
 Funes gives you fine-grained control over when and how projections run:
