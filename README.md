@@ -183,6 +183,12 @@ Funes uses optimistic concurrency control. Each event in a stream gets an increm
 
 If two processes try to append to the same stream simultaneously, one succeeds and the other gets a validation error — no locks, no blocking.
 
+## Documentation
+
+Full API documentation is available at [docs.funes.org](https://docs.funes.org).
+
+> **Note:** Until a production-ready version is released, only the latest version is documented. Versioned documentation will be introduced once the API stabilizes.
+
 ## Strict mode
 
 By default, projections ignore events they don't have interpretations for. By using `raise_on_unknown_events` you enable strict mode to catch missing handlers. This is specially worth for critical projections.
