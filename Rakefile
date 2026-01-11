@@ -8,48 +8,12 @@ load "rails/tasks/statistics.rake"
 require "bundler/gem_tasks"
 
 namespace :docs do
-  desc "Generate YARD documentation for current version"
+  desc "Generate YARD documentation"
   task :generate do
-    # Allow version override via environment variable (for CI)
-    version = ENV["VERSION"] || begin
-      require_relative "lib/funes/version"
-      Funes::VERSION
-    end
-    output_dir = "docs/v#{version}"
+    output_dir = "docs"
 
-    puts "Generating documentation for version #{version}..."
+    puts "Generating documentation..."
     system("yard doc --output-dir #{output_dir}") || abort("Failed to generate documentation")
-
-    # Copy assets to root docs directory
-    FileUtils.mkdir_p("docs")
-    %w[css js].each do |asset_dir|
-      if Dir.exist?("#{output_dir}/#{asset_dir}")
-        FileUtils.cp_r("#{output_dir}/#{asset_dir}", "docs/#{asset_dir}")
-      end
-    end
-
-    puts "Documentation generated in #{output_dir}/"
-    Rake::Task["docs:build_index"].invoke
-  end
-
-  desc "Build version selector index page"
-  task :build_index do
-    require "erb"
-
-    versions = Dir.glob("docs/v*").map { |d| File.basename(d) }.sort.reverse
-
-    if versions.empty?
-      puts "No versions found. Run 'rake docs:generate' first."
-      exit 1
-    end
-
-    latest_version = versions.first
-    template_path = File.expand_path("lib/templates/docs_index.html.erb", __dir__)
-    template = ERB.new(File.read(template_path))
-    html = template.result(binding)
-
-    File.write("docs/index.html", html)
-    puts "Version index page created at docs/index.html"
 
     # Create CNAME file for GitHub Pages custom domain
     File.write("docs/CNAME", "docs.funes.org\n")
@@ -59,17 +23,7 @@ namespace :docs do
     # This is required for YARD's _index.html file to work properly
     File.write("docs/.nojekyll", "")
     puts ".nojekyll file created to bypass Jekyll processing"
-  end
 
-  desc "List all documented versions"
-  task :list do
-    versions = Dir.glob("docs/v*").map { |d| File.basename(d) }.sort.reverse
-
-    if versions.empty?
-      puts "No versions documented yet."
-    else
-      puts "Documented versions:"
-      versions.each { |v| puts "  - #{v}" }
-    end
+    puts "Documentation generated in #{output_dir}/"
   end
 end

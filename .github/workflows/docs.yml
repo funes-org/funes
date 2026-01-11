@@ -30,30 +30,8 @@ jobs:
           ruby-version: '3.2.2'
           bundler-cache: true
 
-      - name: Fetch all tags
-        run: git fetch --tags --force
-
-      - name: Generate documentation for all versions
-        run: |
-          # Get all version tags
-          tags=$(git tag -l 'v*' | sort -V)
-
-          echo "Found tags: $tags"
-
-          # Generate docs for each version using current code
-          # This ensures bug fixes in documentation generation apply to all versions
-          for tag in $tags; do
-            echo "Generating docs for $tag..."
-
-            # Extract version number (strip 'v' prefix)
-            version=${tag#v}
-
-            # Generate docs using current code but with version from tag
-            VERSION=$version bundle exec rake docs:generate || true
-          done
-
-          # Rebuild index to include all versions
-          bundle exec rake docs:build_index
+      - name: Generate documentation
+        run: bundle exec rake docs:generate
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
