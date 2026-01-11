@@ -82,7 +82,7 @@ A **Projection** transforms events into a **materialized representation** — th
 * **Virtual projections:** these are extensions of `ActiveModel` and exist only in memory. They are calculated on-the-fly, making them ideal for "Consistency Projections" (see the consistency models bellow) used to validate business rules against the current state.
 * **Persistent projections:** these are extensions of `ActiveRecord` and are stored in your database. These are your read nodels, allowing you to perform fast, standard Rails queries on data derived from your history.
 
-> **Note on architectural philosophy:** Projections in Funes follow a **functional programming approach** rather than object-oriented patterns. Each `interpretation_for` block is a pure transformation function that receives state, applies the event's effects, and returns the updated state. This functional style is intrinsic to event sourcing — it ensures projections remain predictable, testable, and free from side effects. The state flows through interpretations as immutable snapshots being transformed, rather than objects being mutated.
+> **Note on architectural philosophy:** Projections in Funes follow a **functional programming approach** rather than object-oriented patterns. Each `interpretation_for` block is a pure transformation function that receives state, applies the event's effects, and returns the updated state. This approach ensures projections remain predictable, testable, and free from side effects. The state flows through interpretations as immutable snapshots being transformed, rather than objects being mutated.
 
 ```ruby
 class OutstandingBalance
