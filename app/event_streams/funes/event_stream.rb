@@ -1,3 +1,5 @@
+require "funes/transactional_projection_failed"
+
 module Funes
   # EventStream manages the append-only sequence of events for a specific entity.
   # Each stream is identified by an `idx` (entity identifier) and provides methods for appending

@@ -4,7 +4,12 @@ module Funes
 
     initializer "funes.autoload", before: :set_autoload_paths do |app|
       engine_root = config.root
-      app.config.autoload_paths << engine_root.join("lib")
+
+      %w[models event_streams projections helpers].each do |dir|
+        path = engine_root.join("app", dir)
+        app.config.autoload_paths << path
+        app.config.eager_load_paths << path
+      end
     end
   end
 end

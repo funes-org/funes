@@ -1,3 +1,6 @@
+require "funes/unknown_event"
+require "funes/unknown_materialization_model"
+
 module Funes
   # Projections perform the necessary pattern-matching to compute and aggregate the interpretations that the system
   # gives to a particular collection of events. A projection consists of a series of interpretations defined by the
