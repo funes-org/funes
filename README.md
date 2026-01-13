@@ -9,6 +9,8 @@ Unlike traditional event sourcing frameworks that require a total shift in how y
 > [!WARNING]
 > **Not Production Ready:** Funes is currently under active development and is not yet ready for production use. The API may change without notice, and features may be incomplete or unstable. Use at your own risk in development and testing environments only.
 
+> Named after Funes the Memorious, the Borges character who could forget nothing, this framework embodies the principle that in some systems, remembering everything matters.
+
 ## Event Sourcing?
 
 In a typical Rails app, data has no past — only a present. You `update!` a record and the previous value is gone. Event sourcing takes a different approach: store *what happened* as immutable events, then derive current state by replaying them.
