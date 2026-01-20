@@ -4,6 +4,7 @@ class AddEvents < ActiveRecord::Migration[8.0]
       t.column :klass, :string, null: false
       t.column :idx, :string, null: false
       t.column :props, :json, null: false
+      t.column :meta_info, :json
       t.column :version, :bigint, default: 1, null: false
       t.column :created_at, :datetime, null: false, default: -> { "CURRENT_TIMESTAMP" }
     end

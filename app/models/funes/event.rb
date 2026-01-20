@@ -64,7 +64,11 @@ module Funes
 
     # @!visibility private
     def persist!(idx, version)
-      self._event_entry = Funes::EventEntry.create!(klass: self.class.name, idx:, version:, props: attributes)
+      raise Funes::InvalidEventMetainformation,
+            Funes::EventMetainformation.errors.full_messages.join(", ") unless Funes::EventMetainformation.valid?
+
+      self._event_entry = Funes::EventEntry.create!(klass: self.class.name, idx:, version:, props: attributes,
+                                                    meta_info: Funes::EventMetainformation.attributes)
     end
 
     # Check if the event has been persisted to the database.

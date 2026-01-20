@@ -182,6 +182,21 @@ interpretation_for(Debt::Issued) do |state, event, as_of|
 end
 ```
 
+## Event Metainformation
+
+In auditable systems, knowing *what* happened is only part of the story — you also need to know *who* did it and *in what context*. Event metainformation allows you to attach contextual data to every event recorded during a request, such as the acting user, the controller action, or the application version. This enriches your audit trail with the provenance information required for compliance, debugging, and forensic analysis.
+
+Configure the attributes your application needs via an initializer:
+
+```ruby
+# config/initializers/funes.rb
+Funes.configure do |config|
+  config.event_metainformation_attributes = [:user_id, :action, :git_version]
+end
+```
+
+For complete setup instructions, validation configuration, and usage examples, see [Event Metainformation Documentation](EVENT_METAINFORMATION.md).
+
 ## Optimistic concurrency control
 
 Funes uses optimistic concurrency control. Each event in a stream gets an incrementing version number with a unique constraint on (idx, version).

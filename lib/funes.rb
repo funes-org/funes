@@ -1,4 +1,7 @@
 require "funes/version"
+require "funes/configuration"
+require "funes/event_metainformation_builder"
+require "funes/invalid_event_metainformation"
 require "funes/engine"
 
 # Funes is an event sourcing framework for Ruby on Rails.
@@ -69,4 +72,13 @@ require "funes/engine"
 # @see Funes::Projection
 # @see Funes::ProjectionTestHelper
 module Funes
+  class << self
+    def configuration
+      @configuration ||= Configuration.new
+    end
+
+    def configure
+      yield(configuration)
+    end
+  end
 end
