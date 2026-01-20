@@ -143,7 +143,7 @@ Funes gives you fine-grained control over when and how projections run:
 |:--------------------------|:-----------------------------|:------------------------------------------------|
 | Consistency Projection    | Before event is persisted    | Validate business rules against resulting state |
 | Transactional Projections | Same DB transaction as event | Critical read models needing strong consistency |
-| Async Projections         | Background job (ActiveJob)   | Reports, analytics, non-critical read models    |
+| Async Projections         | Background job (ActiveJob)   | Reports, analytics, eventually consistent read models    |
 
 ### Consistency projections
 
