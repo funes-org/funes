@@ -127,10 +127,11 @@ end
 
 valid_event = Debt::Issued.new(amount: 100, interest_rate: 0.05, at: Time.current)
 DebtEventStream.for("debts-identifier").append(valid_event)
-valid_event.errors.empty? # => true
+valid_event.persisted? # => true
 
 invalid_event = Debt::PaymentReceived.new(principal_amount: 100, interest_amount: 50, at: valid_event.at)
 DebtEventStream.for("debts-identifier").append(invalid_event) # => led to overpayment invalid state
+invalid_event.persisted? # => false
 invalid_event.errors.empty? # => false
 ```
 
@@ -142,7 +143,7 @@ Funes gives you fine-grained control over when and how projections run:
 |:--------------------------|:-----------------------------|:------------------------------------------------|
 | Consistency Projection    | Before event is persisted    | Validate business rules against resulting state |
 | Transactional Projections | Same DB transaction as event | Critical read models needing strong consistency |
-| Async Projections         | Background job (ActiveJob)   | Reports, analytics, non-critical read models    |
+| Async Projections         | Background job (ActiveJob)   | Reports, analytics, eventually consistent read models    |
 
 ### Consistency projections
 
