@@ -3,6 +3,9 @@ inherit_gem: { rubocop-rails-omakase: rubocop.yml }
 
 AllCops:
   TargetRubyVersion: 3.2
+  Exclude:
+    - 'db/schema.rb'
+    - 'test/dummy/db/schema.rb'
 
 # Overwrite or add rules to create your own house style
 #

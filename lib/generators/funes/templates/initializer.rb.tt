@@ -1,0 +1,18 @@
+# Funes configuration
+#
+# For more information, see: https://github.com/funes-org/funes
+
+Funes.configure do |config|
+  # Define the attributes for event metainformation.
+  # These attributes are attached to every event for audit trail purposes.
+  #
+  # config.event_metainformation_attributes = [:user_id, :action, :git_version]
+
+  # Define validations for event metainformation.
+  # Supports all standard ActiveModel validators.
+  #
+  # config.event_metainformation_validations do
+  #   validates :user_id, presence: true
+  #   validates :action, presence: true, format: { with: /\A\w+#\w+\z/ }
+  # end
+end

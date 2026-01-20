@@ -24,18 +24,17 @@ module Funes
       end
 
       private
+        def json_column_type
+          postgres? ? "jsonb" : "json"
+        end
 
-      def json_column_type
-        postgres? ? "jsonb" : "json"
-      end
+        def migration_version
+          "[#{::Rails::VERSION::MAJOR}.#{::Rails::VERSION::MINOR}]"
+        end
 
-      def migration_version
-        "[#{::Rails::VERSION::MAJOR}.#{::Rails::VERSION::MINOR}]"
-      end
-
-      def postgres?
-        ActiveRecord::Base.configurations.configs_for(env_name: Rails.env).first&.adapter == "postgresql"
-      end
+        def postgres?
+          ActiveRecord::Base.configurations.configs_for(env_name: Rails.env).first&.adapter == "postgresql"
+        end
     end
   end
 end
