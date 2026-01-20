@@ -127,11 +127,11 @@ end
 
 valid_event = Debt::Issued.new(amount: 100, interest_rate: 0.05, at: Time.current)
 DebtEventStream.for("debts-identifier").append(valid_event)
-valid_event.errors.empty? # => true
+valid_event.persisted? # => true
 
 invalid_event = Debt::PaymentReceived.new(principal_amount: 100, interest_amount: 50, at: valid_event.at)
 DebtEventStream.for("debts-identifier").append(invalid_event) # => led to overpayment invalid state
-invalid_event.errors.empty? # => false
+invalid_event.persisted? # => false
 ```
 
 ## Three-Tier Consistency Model
