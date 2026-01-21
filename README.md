@@ -113,6 +113,33 @@ class VirtualOutstandingBalanceProjection < Funes::Projection
 end
 ```
 
+#### Persistent Projection Materialization Tables
+
+Persistent projections require as a **materialization model** an ActiveRecord model whose table follows a specific structure convention:
+
+- **No auto-incrementing primary key** — use `id: false`
+- **`idx` column as primary key** — string, not null
+- **Unique index on `idx`** — required for upsert operations
+
+Example migration:
+
+```ruby
+create_table :your_projections, id: false, primary_key: :idx do |t|
+  t.string :idx, null: false
+  # your domain columns here
+end
+
+add_index :your_projections, :idx, unique: true
+```
+
+The `idx` column links the read model to its event stream. Funes uses `upsert(attributes, unique_by: :idx)` for idempotent persistence.
+
+You can generate a correctly structured migration using the provided generator:
+
+```bash
+$ bin/rails generate funes:materialization_table YourModel field:type field:type
+```
+
 ### Event streams (the orchestrator)
 
 An **Event Stream** is a logical grouping of events (e.g., all events for `Account:42`). It is the primary interface for your log and manages the lifecycle of a change.
