@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_09_27_111752) do
+ActiveRecord::Schema[7.1].define(version: 2025_09_27_111752) do
   create_table "debt_collections", id: false, force: :cascade do |t|
     t.string "idx", null: false
     t.decimal "outstanding_balance", precision: 15, scale: 2, null: false
