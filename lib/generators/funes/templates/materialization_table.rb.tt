@@ -1,0 +1,12 @@
+class Create<%= class_name.pluralize %> < ActiveRecord::Migration<%= migration_version %>
+  def change
+    create_table :<%= table_name %>, id: false, primary_key: :idx do |t|
+      t.string :idx, null: false
+<% attributes.each do |attribute| -%>
+      t.<%= attribute.type %> :<%= attribute.name %><%= ", null: false" if attribute.required? %>
+<% end -%>
+    end
+
+    add_index :<%= table_name %>, :idx, unique: true
+  end
+end
