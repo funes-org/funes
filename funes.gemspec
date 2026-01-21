@@ -18,4 +18,12 @@ Gem::Specification.new do |spec|
   end
 
   spec.add_dependency "rails", ">= 8.0.2.1"
+
+  # Development dependencies
+  spec.add_development_dependency "database_cleaner-active_record"
+  spec.add_development_dependency "puma"
+  spec.add_development_dependency "redcarpet"
+  spec.add_development_dependency "rubocop-rails-omakase"
+  spec.add_development_dependency "sqlite3"
+  spec.add_development_dependency "yard"
 end
