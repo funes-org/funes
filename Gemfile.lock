@@ -2,7 +2,7 @@ PATH
   remote: .
   specs:
     funes-rails (0.1.1)
-      rails (>= 8.0.2.1)
+      rails (>= 7.1)
 
 GEM
   remote: https://rubygems.org/
@@ -78,6 +78,10 @@ GEM
       securerandom (>= 0.3)
       tzinfo (~> 2.0, >= 2.0.5)
       uri (>= 0.13.1)
+    appraisal (2.5.0)
+      bundler
+      rake
+      thor (>= 0.14.0)
     ast (2.4.3)
     base64 (0.3.0)
     benchmark (0.4.1)
@@ -246,8 +250,10 @@ PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
+  appraisal
   database_cleaner-active_record
   funes-rails!
+  minitest (< 5.26)
   puma
   redcarpet
   rubocop-rails-omakase

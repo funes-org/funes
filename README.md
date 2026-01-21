@@ -241,5 +241,12 @@ Full API documentation is available at [docs.funes.org](https://docs.funes.org).
 
 By default, projections ignore events they don't have interpretations for. By using `raise_on_unknown_events` you enable strict mode to catch missing handlers. This is specially worth for critical projections.
 
+## Compatibility
+
+- **Ruby:** 3.1, 3.2, 3.3, 3.4
+- **Rails:** 7.1, 7.2, 8.0, 8.1
+
+Rails 8.0+ requires Ruby 3.2 or higher.
+
 ## License
 The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).

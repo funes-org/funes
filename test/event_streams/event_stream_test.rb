@@ -59,38 +59,42 @@ class EventStreamTest < ActiveSupport::TestCase
   describe "append method" do
     describe "the happy path" do
       describe "with a fresh event stream" do
+        event_stream_id = "hadouken"
+
         it "persists the event to the event log" do
           assert_difference -> { Funes::EventEntry.count }, 1 do
-            event_stream.for("hadouken").append events.first
+            event_stream.for(event_stream_id).append events.first
           end
         end
 
         it "adds the transactional projection to the database" do
           assert_difference -> { UnitTests::Materialization.count }, 1 do
-            event_stream.for("hadouken").append events.first
+            event_stream.for(event_stream_id).append events.first
           end
 
-          assert_equal UnitTests::Materialization.all.first.value, 0
+          assert_equal UnitTests::Materialization.find(event_stream_id).value, 0
         end
       end
 
       describe "with a previously created event stream" do
+        event_stream_id = "hadouken"
+
         before do
-          event_stream.for("hadouken").append events.first
+          event_stream.for(event_stream_id).append events.first
         end
 
         it "persists the event to the event log" do
           assert_difference -> { Funes::EventEntry.count }, 1 do
-            event_stream.for("hadouken").append events.second
+            event_stream.for(event_stream_id).append events.second
           end
         end
 
         it "updates the existent stream's transactional projection record" do
           assert_no_difference -> { UnitTests::Materialization.count } do
-            event_stream.for("hadouken").append events.second
+            event_stream.for(event_stream_id).append events.second
           end
 
-          assert_equal UnitTests::Materialization.all.first.value, 1
+          assert_equal UnitTests::Materialization.find(event_stream_id).value, 1
         end
       end
     end

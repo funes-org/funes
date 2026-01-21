@@ -1,3 +1,5 @@
 module UnitTests
-  class Materialization < ApplicationRecord; end
+  class Materialization < ApplicationRecord
+    self.primary_key = :idx
+  end
 end

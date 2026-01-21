@@ -17,13 +17,15 @@ Gem::Specification.new do |spec|
     Dir["{app,config,db,lib}/**/*", "MIT-LICENSE", "Rakefile", "README.md"]
   end
 
-  spec.add_dependency "rails", ">= 8.0.2.1"
+  spec.add_dependency "rails", ">= 7.1"
 
   # Development dependencies
+  spec.add_development_dependency "minitest", "< 5.26"
   spec.add_development_dependency "database_cleaner-active_record"
   spec.add_development_dependency "puma"
   spec.add_development_dependency "redcarpet"
   spec.add_development_dependency "rubocop-rails-omakase"
   spec.add_development_dependency "sqlite3"
   spec.add_development_dependency "yard"
+  spec.add_development_dependency "appraisal"
 end
