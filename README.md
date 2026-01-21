@@ -180,7 +180,7 @@ Funes gives you fine-grained control over when and how projections run:
 ### Transactional projections
 
 * **Atomic updates:** these update your persistent read models (`ActiveRecord`) within the same database transaction as the event.
-* **Strong consistency:** if the projection fails to update, the entire transaction rolls back. This ensures your critical read models are always in sync with the event log.
+* **Fail-loud on errors:** if a projection fails with a database error (e.g., constraint violation), the transaction rolls back, the event is marked as not persisted (`persisted?` returns `false`), and the exception propagates. This ensures bugs are immediately visible rather than silently hidden, while keeping the event in a consistent state for any rescue logic in your application.
 
 ### Async projections
 
