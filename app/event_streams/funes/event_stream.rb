@@ -1,5 +1,3 @@
-require "funes/transactional_projection_failed"
-
 module Funes
   # EventStream manages the append-only sequence of events for a specific entity.
   # Each stream is identified by an `idx` (entity identifier) and provides methods for appending
@@ -64,10 +62,15 @@ module Funes
       # Register a transactional projection that executes synchronously in the same database transaction.
       #
       # Transactional projections run after the event is persisted but within the same database transaction.
-      # If a transactional projection fails, the entire transaction (including the event) is rolled back.
+      # If a transactional projection fails with a database error, the transaction is rolled back,
+      # the event is marked as not persisted (`persisted?` returns false), and the exception propagates
+      # to the caller. This fail-loud behavior ensures that bugs in projections (such as constraint
+      # violations) are immediately visible rather than silently hidden.
       #
       # @param [Class<Funes::Projection>] projection The projection class to execute transactionally.
       # @return [void]
+      # @raise [ActiveRecord::StatementInvalid] if the projection fails with a database error.
+      #   The event will have `persisted?` returning false, allowing safe rescue in the host application.
       #
       # @example
       #   class OrderEventStream < Funes::EventStream
@@ -172,10 +175,13 @@ module Funes
         begin
           @instance_new_events << new_event.persist!(@idx, incremented_version)
           run_transactional_projections
-        rescue ActiveRecord::RecordNotUnique, Funes::TransactionalProjectionFailed
+        rescue ActiveRecord::RecordNotUnique
           new_event._event_entry = nil
           new_event.errors.add(:base, I18n.t("funes.events.racing_condition_on_insert"))
           raise ActiveRecord::Rollback
+        rescue ActiveRecord::StatementInvalid => e
+          new_event._event_entry = nil
+          raise e
         end
       end
 
@@ -227,12 +233,8 @@ module Funes
 
     private
       def run_transactional_projections
-        begin
-          transactional_projections.each do |projection_class|
-            Funes::PersistProjectionJob.perform_now(@idx, projection_class, last_event_creation_date)
-          end
-        rescue ActiveRecord::StatementInvalid => e
-          raise Funes::TransactionalProjectionFailed, e.message
+        transactional_projections.each do |projection_class|
+          Funes::PersistProjectionJob.perform_now(@idx, projection_class, last_event_creation_date)
         end
       end
 

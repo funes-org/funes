@@ -79,16 +79,15 @@ class TransactionalControlForNewEventsTest < ActiveSupport::TestCase
       add_transactional_projection FailingProjection
     end
 
-    it "rolls back the event when projection constraint violation occurs" do
+    it "raises the original database error and marks event as not persisted" do
       idx = "txn-single-proj-fail-#{SecureRandom.uuid}"
       event = Events::ValidEvent.new(value: 42)
 
-      assert_no_difference -> { Funes::EventEntry.count }, "No event should be created" do
+      assert_raises(ActiveRecord::StatementInvalid) do
         StreamWithSingleFailingProjection.for(idx).append(event)
       end
 
-      assert_not event.persisted?, "Event should NOT be marked as persisted"
-      assert event.errors[:base].present?, "The error should be added to the event's errors"
+      assert_not event.persisted?, "Event should NOT be marked as persisted after rollback"
       refute Funes::EventEntry.exists?(idx: idx), "EventEntry should not exist after rollback"
       refute UnitTests::Materialization.exists?(idx: idx), "Materialization should not exist after rollback"
     end
@@ -100,16 +99,15 @@ class TransactionalControlForNewEventsTest < ActiveSupport::TestCase
       add_transactional_projection FailingProjection
     end
 
-    it "rolls back event AND first projection when second projection fails (all-or-nothing)" do
+    it "raises the original database error and rolls back all changes (all-or-nothing)" do
       idx = "txn-multi-proj-fail-#{SecureRandom.uuid}"
       event = Events::ValidEvent.new(value: 42)
 
-      assert_no_difference -> { Funes::EventEntry.count }, "No event should be created" do
+      assert_raises(ActiveRecord::StatementInvalid) do
         StreamWithMultipleProjections.for(idx).append(event)
       end
 
-      assert_not event.persisted?, "Event should NOT be marked as persisted"
-      assert event.errors[:base].present?, "The error should be added to the event's errors"
+      assert_not event.persisted?, "Event should NOT be marked as persisted after rollback"
       refute Funes::EventEntry.exists?(idx: idx), "EventEntry should not exist after rollback"
       refute UnitTests::Materialization.exists?(idx: idx),
              "Materialization should not exist (for both projections) after rollback"
