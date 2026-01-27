@@ -50,5 +50,61 @@ module Funes
       projection_class.instance_variable_get(:@interpretations)[event_instance.class]
                       .call(previous_state, event_instance, as_of)
     end
+
+    # Test an initial_state block in isolation.
+    #
+    # This method extracts and executes the initial_state block from a projection,
+    # allowing you to test how the projection builds its starting state without
+    # processing entire event streams.
+    #
+    # @param [Class<Funes::Projection>] projection_class The projection class being tested.
+    # @param [Time, nil] as_of Optional timestamp for temporal logic. Defaults to Time.current.
+    # @return [ActiveModel::Model, ActiveRecord::Base] The initial state produced by the projection.
+    #
+    # @example Test initial state construction
+    #   result = build_initial_state_based_on(InventorySnapshotProjection)
+    #
+    #   assert_equal 0, result.quantity_on_hand
+    #
+    # @example Test with a specific timestamp
+    #   as_of = Time.new(2023, 5, 10)
+    #
+    #   result = build_initial_state_based_on(InventorySnapshotProjection, as_of)
+    #
+    #   assert_equal as_of, result.created_at
+    def build_initial_state_based_on(projection_class, as_of = Time.current)
+      projection_class.instance_variable_get(:@interpretations)[:init]
+                      .call(projection_class.instance_variable_get(:@materialization_model), as_of)
+    end
+
+    # Test a final_state block in isolation.
+    #
+    # This method extracts and executes the final_state block from a projection,
+    # allowing you to test how the projection transforms state after all event
+    # interpretations have been applied.
+    #
+    # @param [Class<Funes::Projection>] projection_class The projection class being tested.
+    # @param [ActiveModel::Model, ActiveRecord::Base] previous_state The state before applying the final transformation.
+    # @param [Time, nil] as_of Optional timestamp for temporal logic. Defaults to Time.current.
+    # @return [ActiveModel::Model, ActiveRecord::Base] The final state after applying the transformation.
+    #
+    # @example Test final state transformation
+    #   state = OrderSnapshot.new(total: 100, item_count: 3)
+    #
+    #   result = apply_final_state_based_on(OrderSnapshotProjection, state)
+    #
+    #   assert_equal 33.33, result.average_item_price
+    #
+    # @example Test with a specific timestamp
+    #   state = InventorySnapshot.new(quantity_on_hand: 10)
+    #   as_of = Time.new(2023, 5, 10)
+    #
+    #   result = apply_final_state_based_on(InventorySnapshotProjection, state, as_of)
+    #
+    #   assert_equal as_of, result.finalized_at
+    def apply_final_state_based_on(projection_class, previous_state, as_of = Time.current)
+      projection_class.instance_variable_get(:@interpretations)[:final]
+                      .call(previous_state, as_of)
+    end
   end
 end
