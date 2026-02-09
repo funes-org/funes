@@ -169,7 +169,8 @@ module Funes
     def append(new_event)
       return new_event unless new_event.valid?
       return new_event if consistency_projection.present? &&
-                          compute_projection_with_new_event(consistency_projection, new_event).invalid?
+                          (compute_projection_with_new_event(consistency_projection, new_event).invalid? ||
+                           new_event.invalid?)
 
       ActiveRecord::Base.transaction do
         begin
@@ -283,7 +284,6 @@ module Funes
       def compute_projection_with_new_event(projection_class, new_event)
         materialization = projection_class.process_events(events + [ new_event ], @as_of)
         unless materialization.valid?
-          new_event.event_errors = new_event.errors
           new_event.adjacent_state_errors = materialization.errors
         end
 
