@@ -51,13 +51,18 @@ class InterpretationErrorsTest < ActiveSupport::TestCase
   end
 
   describe "logging of ineffective interpretation errors" do
+    original_warn = Rails.logger.method(:warn)
+
+    teardown do
+      Rails.logger.define_singleton_method(:warn, original_warn)
+    end
+
     describe "when errors are added in a non-consistency projection" do
       it "logs a warning and discards the errors" do
         TransactionalProjectionEventStream.for("warn-test").append(Events4CurrentTest::Start.new(value: 5))
 
         warnings = []
-        callback = ->(msg) { warnings << msg }
-        Rails.logger.define_singleton_method(:warn) { |msg| callback.call(msg) }
+        Rails.logger.define_singleton_method(:warn) { |msg| warnings << msg }
 
         TransactionalProjectionEventStream.for("warn-test").append(Events4CurrentTest::Add.new(value: -10))
 
@@ -71,8 +76,7 @@ class InterpretationErrorsTest < ActiveSupport::TestCase
     describe "when errors are added in a consistency projection" do
       it "does not log a warning" do
         warnings = []
-        callback = ->(msg) { warnings << msg }
-        Rails.logger.define_singleton_method(:warn) { |msg| callback.call(msg) }
+        Rails.logger.define_singleton_method(:warn) { |msg| warnings << msg }
 
         SubjectEventStream.for("no-warn-test").append(Events4CurrentTest::Start.new(value: -5))
 
