@@ -30,6 +30,11 @@ module Funes
     class << self
       # Registers an interpretation block for a given event type.
       #
+      # Inside interpretation blocks, you can reject events by calling +event.errors.add(...)+ on the
+      # event. When used as a **consistency projection**, these errors will be transferred to
+      # +event.interpretation_errors+ and the event will not be persisted. In transactional or async
+      # projections, errors added to the event have no rejection effect and will be logged as a warning.
+      #
       # @param [Class<Funes::Event>] event_type The event class constant that will be interpreted.
       # @yield [state, event, as_of] Block invoked with the current state, the event and the as_of marker. It should return a new version of the transient state
       # @yieldparam [ActiveModel::Model, ActiveRecord::Base] transient_state The current transient state
@@ -38,9 +43,10 @@ module Funes
       # @yieldreturn [ActiveModel::Model, ActiveRecord::Base] the new transient state
       # @return [void]
       #
-      # @example
+      # @example Rejecting an event in a consistency projection
       #   class YourProjection < Funes::Projection
       #     interpretation_for Order::Placed do |transient_state, current_event, _as_of|
+      #       current_event.errors.add(:base, "Order total too high") if current_event.amount > 10_000
       #       transient_state.assign_attributes(total: (transient_state.total || 0) + current_event.amount)
       #       transient_state
       #     end
@@ -128,11 +134,11 @@ module Funes
       end
 
       # @!visibility private
-      def process_events(events_collection, as_of)
+      def process_events(events_collection, as_of, consistency: false)
         new(self.instance_variable_get(:@interpretations),
             self.instance_variable_get(:@materialization_model),
             self.instance_variable_get(:@throws_on_unknown_events))
-          .process_events(events_collection, as_of)
+          .process_events(events_collection, as_of, consistency: consistency)
       end
 
       # @!visibility private
@@ -152,7 +158,7 @@ module Funes
     end
 
     # @!visibility private
-    def process_events(events_collection, as_of)
+    def process_events(events_collection, as_of, consistency: false)
       initial_state = interpretations[:init].present? ? interpretations[:init].call(@materialization_model, as_of) : @materialization_model.new
       state = events_collection.inject(initial_state) do |previous_state, event|
         fn = @interpretations[event.class]
@@ -160,7 +166,11 @@ module Funes
           raise Funes::UnknownEvent, "Events of the type #{event.class} are not processable"
         end
 
-        fn.nil? ? previous_state : fn.call(previous_state, event, as_of)
+        result = fn.nil? ? previous_state : fn.call(previous_state, event, as_of)
+
+        warn_about_ineffective_errors(event) unless consistency
+
+        result
       end
 
       state = interpretations[:final].call(state, as_of) if interpretations[:final].present?
@@ -201,6 +211,16 @@ module Funes
 
       def persist_based_on!(state)
         @materialization_model.upsert(state.attributes, unique_by: :idx)
+      end
+
+      def warn_about_ineffective_errors(event)
+        return unless event.is_a?(Funes::Event)
+
+        base_errors = event.send(:base_errors)
+        return if base_errors.empty?
+
+        Rails.logger.warn("[Funes] Errors added to #{event.class} in a non-consistency projection " \
+                          "have no effect and will be discarded: #{base_errors.full_messages.join(', ')}")
       end
   end
 end

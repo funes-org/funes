@@ -6,11 +6,14 @@ module Funes
   #
   # ## Event Validation
   #
-  # Events support two types of validation:
+  # Events support three types of validation:
   #
   # - **Own validation:** Standard ActiveModel validations defined on the event class itself.
   # - **Adjacent state validation:** Validation errors from consistency projections that check
   #   if the event would lead to an invalid state.
+  # - **Interpretation errors:** Errors added via +event.errors.add(...)+ inside interpretation
+  #   blocks. When used in a consistency projection, these are automatically transferred to
+  #   +interpretation_errors+ and cause the event to be rejected.
   #
   # The `valid?` method returns `true` only if both validations pass. The `errors` method
   # merges both types of errors for display.
@@ -46,11 +49,11 @@ module Funes
 
     # @!attribute [rw] adjacent_state_errors
     #   @return [ActiveModel::Errors] Validation errors from consistency projections.
-    attr_accessor :adjacent_state_errors
+    attr_accessor :_adjacent_state_errors
 
-    # @!attribute [rw] event_errors
-    #   @return [ActiveModel::Errors, nil] The event's own validation errors (internal use).
-    attr_accessor :event_errors
+    # @!attribute [rw] interpretation_errors
+    #   @return [ActiveModel::Errors] Explicit rejection errors from consistency projection interpretation blocks.
+    attr_accessor :_interpretation_errors
 
     # @!attribute [rw] _event_entry
     #   @return [Funes::EventEntry, nil] The persisted EventEntry record (internal use).
@@ -59,7 +62,8 @@ module Funes
     # @!visibility private
     def initialize(*args, **kwargs)
       super(*args, **kwargs)
-      @adjacent_state_errors = ActiveModel::Errors.new(nil)
+      @_adjacent_state_errors = ActiveModel::Errors.new(self)
+      @_interpretation_errors = ActiveModel::Errors.new(self)
     end
 
     # @!visibility private
@@ -110,8 +114,20 @@ module Funes
     #   event = Order::Placed.new(total: 99.99, customer_id: "cust-123")
     #   event.valid?  # => true or false
     def valid?
-      super && (adjacent_state_errors.nil? || adjacent_state_errors.empty?)
+      super && _adjacent_state_errors.empty? && _interpretation_errors.empty?
     end
+
+    # Check if the event is invalid.
+    #
+    # An event is invalid if any of its own validations fail, it leads to an invalid state
+    # (adjacent_state_errors), or it has been explicitly rejected via interpretation_errors.
+    #
+    # @return [Boolean] `true` if the event is invalid, `false` otherwise.
+    #
+    # @example
+    #   event = Order::Placed.new(total: -10)
+    #   event.invalid?  # => true (own validation failed)
+    def invalid? = !valid?
 
     # Get validation errors from consistency projections.
     #
@@ -124,7 +140,7 @@ module Funes
     #   event = stream.append(Inventory::ItemShipped.new(quantity: 9999))
     #   event.state_errors.full_messages  # => ["Quantity on hand must be >= 0"]
     def state_errors
-      adjacent_state_errors
+      _adjacent_state_errors
     end
 
     # Get the event's own validation errors (excluding state errors).
@@ -135,7 +151,11 @@ module Funes
     #   event = Order::Placed.new(total: -10)
     #   event.own_errors.full_messages  # => ["Total must be greater than 0"]
     def own_errors
-      event_errors || errors
+      tmp_errors = ActiveModel::Errors.new(self)
+      tmp_errors.merge!(base_errors)
+      merge_errors_into(tmp_errors, _interpretation_errors)
+
+      tmp_errors
     end
 
     # Get all validation errors (both event and state errors merged).
@@ -149,14 +169,42 @@ module Funes
     #   event.errors.full_messages
     #   # => ["Total must be greater than 0", "Led to invalid state: Quantity on hand must be >= 0"]
     def errors
-      return super if @event_errors.nil?
+      return super unless !_adjacent_state_errors.empty? || !_interpretation_errors.empty?
 
-      tmp_errors = ActiveModel::Errors.new(nil)
-      tmp_errors.merge!(event_errors)
-      adjacent_state_errors.each do |error|
-        tmp_errors.add(:base, "#{I18n.t("funes.events.led_to_invalid_state_prefix")}: #{error.full_message}")
-      end
+      tmp_errors = ActiveModel::Errors.new(self)
+      tmp_errors.merge!(super)
+      merge_errors_into(tmp_errors, _adjacent_state_errors, state_errors: true)
+      merge_errors_into(tmp_errors, _interpretation_errors)
+
       tmp_errors
     end
+
+    private
+      # Get the base ActiveModel validation errors.
+      # This method provides access to the validation errors from ActiveModel::Validations,
+      # which is the parent implementation of the errors method that we override.
+      #
+      # @return [ActiveModel::Errors] The ActiveModel validation errors.
+      def base_errors
+        method(:errors).super_method.call
+      end
+
+      # Merge errors from a source collection into a target errors object.
+      #
+      # @param target_errors [ActiveModel::Errors] The target errors object to merge into
+      # @param source_errors [ActiveModel::Errors, nil] The source errors to merge from
+      # @param state_errors [Boolean] Whether these are adjacent state errors (applies prefix transform)
+      # @return [void]
+      def merge_errors_into(target_errors, source_errors, state_errors: false)
+        return unless source_errors.present? && !source_errors.empty?
+
+        source_errors.each do |error|
+          if state_errors
+            target_errors.add(:base, "#{I18n.t("funes.events.led_to_invalid_state_prefix")}: #{error.full_message}")
+          else
+            target_errors.add(error.attribute, error.message)
+          end
+        end
+      end
   end
 end

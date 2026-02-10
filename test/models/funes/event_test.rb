@@ -79,6 +79,46 @@ class Funes::EventTest < ActiveSupport::TestCase
     end
   end
 
+  describe "#interpretation_errors" do
+    it "is initialized as empty" do
+      event = DummyEvent.new(value: 42)
+
+      assert_empty event._interpretation_errors
+    end
+
+    it "accumulates errors via add" do
+      event = DummyEvent.new(value: 42)
+      event._interpretation_errors.add(:base, "first error")
+      event._interpretation_errors.add(:value, "second error")
+
+      assert_equal event._interpretation_errors.messages, { base: [ "first error" ], value: [ "second error" ] }
+    end
+
+    it "makes valid? return false when populated" do
+      event = DummyEvent.new(value: 42)
+      assert event.valid?
+
+      event._interpretation_errors.add(:base, "rejected")
+      refute event.valid?
+    end
+
+    it "appears in merged errors" do
+      event = DummyEvent.new(value: 42)
+      event._interpretation_errors.add(:base, "business rule violated")
+
+      assert_equal 1, event.errors.size
+      assert_includes "business rule violated", event.errors.first.message
+    end
+
+    it "returns interpretation_errors from own_errors" do
+      event = DummyEvent.new(value: 42)
+      event._interpretation_errors.add(:base, "rejected")
+
+      assert_equal 1, event.own_errors.size
+      assert_equal "rejected", event.own_errors.first.message
+    end
+  end
+
   teardown do
     Funes::EventMetainformation.reset
     Funes::EventMetainformation.clear_validators!
