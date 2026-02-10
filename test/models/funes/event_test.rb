@@ -91,7 +91,7 @@ class Funes::EventTest < ActiveSupport::TestCase
       event._interpretation_errors.add(:base, "first error")
       event._interpretation_errors.add(:value, "second error")
 
-      assert_equal event._interpretation_errors.messages, { base: ["first error"], value: ["second error" ] }
+      assert_equal event._interpretation_errors.messages, { base: [ "first error" ], value: [ "second error" ] }
     end
 
     it "makes valid? return false when populated" do
