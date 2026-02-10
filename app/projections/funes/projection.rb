@@ -30,6 +30,10 @@ module Funes
     class << self
       # Registers an interpretation block for a given event type.
       #
+      # Inside interpretation blocks, you can reject events by calling +event.errors.add(...)+ on the
+      # event. When used as a **consistency projection**, these errors will be transferred to
+      # +event.interpretation_errors+ and the event will not be persisted.
+      #
       # @param [Class<Funes::Event>] event_type The event class constant that will be interpreted.
       # @yield [state, event, as_of] Block invoked with the current state, the event and the as_of marker. It should return a new version of the transient state
       # @yieldparam [ActiveModel::Model, ActiveRecord::Base] transient_state The current transient state
@@ -38,9 +42,10 @@ module Funes
       # @yieldreturn [ActiveModel::Model, ActiveRecord::Base] the new transient state
       # @return [void]
       #
-      # @example
+      # @example Rejecting an event in a consistency projection
       #   class YourProjection < Funes::Projection
       #     interpretation_for Order::Placed do |transient_state, current_event, _as_of|
+      #       current_event.errors.add(:base, "Order total too high") if current_event.amount > 10_000
       #       transient_state.assign_attributes(total: (transient_state.total || 0) + current_event.amount)
       #       transient_state
       #     end

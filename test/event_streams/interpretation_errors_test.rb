@@ -29,14 +29,14 @@ class InterpretationErrorsTest < ActiveSupport::TestCase
     end
 
     interpretation_for Events4CurrentTest::Start do |state, event|
-      event.interpretation_errors.add(:base, "Cannot start with negative value") if event.value.negative?
+      event.errors.add(:base, "Cannot start with negative value") if event.value.negative?
       state.assign_attributes(realized_value: event.value.abs)
       state
     end
 
     interpretation_for Events4CurrentTest::Add do |state, event|
-      event.interpretation_errors.add(:value, "exceeds limit") if event.value.abs > 100
-      event.interpretation_errors.add(:base, "negative additions not allowed") if event.value.negative?
+      event.errors.add(:value, "exceeds limit") if event.value.abs > 100
+      event.errors.add(:base, "negative additions not allowed") if event.value.negative?
       state.assign_attributes(realized_value: state.realized_value + event.value.abs)
       state
     end
@@ -98,9 +98,9 @@ class InterpretationErrorsTest < ActiveSupport::TestCase
         end
 
         it "populates interpretation_errors with custom attribute" do
-          assert_equal 1, invalid_event.interpretation_errors.size
-          assert_equal :value, invalid_event.interpretation_errors.first.attribute
-          assert_equal "exceeds limit", invalid_event.interpretation_errors.first.message
+          assert_equal 1, invalid_event._interpretation_errors.size
+          assert_equal :value, invalid_event._interpretation_errors.first.attribute
+          assert_equal "exceeds limit", invalid_event._interpretation_errors.first.message
         end
 
         it "makes valid? return false" do

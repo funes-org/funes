@@ -83,28 +83,28 @@ class Funes::EventTest < ActiveSupport::TestCase
     it "is initialized as empty" do
       event = DummyEvent.new(value: 42)
 
-      assert_empty event.interpretation_errors
+      assert_empty event._interpretation_errors
     end
 
     it "accumulates errors via add" do
       event = DummyEvent.new(value: 42)
-      event.interpretation_errors.add(:base, "first error")
-      event.interpretation_errors.add(:value, "second error")
+      event._interpretation_errors.add(:base, "first error")
+      event._interpretation_errors.add(:value, "second error")
 
-      assert_equal event.interpretation_errors.messages, { base: [ "first error"], value: [ "second error" ] }
+      assert_equal event._interpretation_errors.messages, { base: ["first error"], value: ["second error" ] }
     end
 
     it "makes valid? return false when populated" do
       event = DummyEvent.new(value: 42)
       assert event.valid?
 
-      event.interpretation_errors.add(:base, "rejected")
+      event._interpretation_errors.add(:base, "rejected")
       refute event.valid?
     end
 
     it "appears in merged errors" do
       event = DummyEvent.new(value: 42)
-      event.interpretation_errors.add(:base, "business rule violated")
+      event._interpretation_errors.add(:base, "business rule violated")
 
       assert_equal 1, event.errors.size
       assert_includes "business rule violated", event.errors.first.message
@@ -112,7 +112,7 @@ class Funes::EventTest < ActiveSupport::TestCase
 
     it "returns interpretation_errors from own_errors" do
       event = DummyEvent.new(value: 42)
-      event.interpretation_errors.add(:base, "rejected")
+      event._interpretation_errors.add(:base, "rejected")
 
       assert_equal 1, event.own_errors.size
       assert_equal "rejected", event.own_errors.first.message

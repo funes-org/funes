@@ -168,9 +168,12 @@ module Funes
     #   end
     def append(new_event)
       return new_event unless new_event.valid?
-      return new_event if consistency_projection.present? &&
-                          (compute_projection_with_new_event(consistency_projection, new_event).invalid? ||
-                           new_event.invalid?)
+
+      if consistency_projection.present?
+        materialization = compute_projection_with_new_event(consistency_projection, new_event)
+        transfer_interpretation_errors(new_event)
+        return new_event if materialization.invalid? || new_event.invalid?
+      end
 
       ActiveRecord::Base.transaction do
         begin
@@ -281,10 +284,20 @@ module Funes
         (@instance_new_events.last&.version || previous_events.last&.version || 0) + 1
       end
 
+      def transfer_interpretation_errors(event)
+        errors = event.send(:base_errors)
+        return if errors.empty?
+
+        errors.each do |error|
+          event._interpretation_errors.add(error.attribute, error.message)
+        end
+        errors.clear
+      end
+
       def compute_projection_with_new_event(projection_class, new_event)
         materialization = projection_class.process_events(events + [ new_event ], @as_of)
         unless materialization.valid?
-          new_event.adjacent_state_errors = materialization.errors
+          new_event._adjacent_state_errors = materialization.errors
         end
 
         materialization
