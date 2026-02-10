@@ -46,6 +46,42 @@ class InterpretationErrorsTest < ActiveSupport::TestCase
     consistency_projection ProjectionWithInterpretationErrors
   end
 
+  class TransactionalProjectionEventStream < Funes::EventStream
+    add_transactional_projection ProjectionWithInterpretationErrors
+  end
+
+  describe "logging of ineffective interpretation errors" do
+    describe "when errors are added in a non-consistency projection" do
+      it "logs a warning and discards the errors" do
+        TransactionalProjectionEventStream.for("warn-test").append(Events4CurrentTest::Start.new(value: 5))
+
+        warnings = []
+        callback = ->(msg) { warnings << msg }
+        Rails.logger.define_singleton_method(:warn) { |msg| callback.call(msg) }
+
+        TransactionalProjectionEventStream.for("warn-test").append(Events4CurrentTest::Add.new(value: -10))
+
+        assert warnings.any? { |msg| msg.include?("[Funes]") },
+          "Expected a warning to be logged for errors in non-consistency projection"
+        assert warnings.any? { |msg| msg.include?("negative additions not allowed") },
+          "logs the proper error message"
+      end
+    end
+
+    describe "when errors are added in a consistency projection" do
+      it "does not log a warning" do
+        warnings = []
+        callback = ->(msg) { warnings << msg }
+        Rails.logger.define_singleton_method(:warn) { |msg| callback.call(msg) }
+
+        SubjectEventStream.for("no-warn-test").append(Events4CurrentTest::Start.new(value: -5))
+
+        assert warnings.none? { |msg| msg.include?("[Funes]") },
+          "Expected no warning to be logged for errors in a consistency projection"
+      end
+    end
+  end
+
   describe "when interpretation errors are added" do
     describe "on a fresh stream" do
       invalid_event = Events4CurrentTest::Start.new(value: -5)

@@ -295,7 +295,7 @@ module Funes
       end
 
       def compute_projection_with_new_event(projection_class, new_event)
-        materialization = projection_class.process_events(events + [ new_event ], @as_of)
+        materialization = projection_class.process_events(events + [ new_event ], @as_of, consistency: true)
         unless materialization.valid?
           new_event._adjacent_state_errors = materialization.errors
         end
