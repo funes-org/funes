@@ -155,4 +155,18 @@ class EventStreamTest < ActiveSupport::TestCase
       end
     end
   end
+
+  describe "projected_with" do
+    before do
+      stream = event_stream.for("hadouken")
+      stream.append events.first
+      stream.append events.second
+    end
+
+    it "projects properly the stream based on the informed projection using the stream's events and as_of" do
+      result = event_stream.for("hadouken").projected_with(consistency_projection)
+      assert_instance_of activemodel_materialization, result
+      assert_equal 1, result.value
+    end
+  end
 end

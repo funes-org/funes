@@ -217,6 +217,23 @@ module Funes
       (previous_events + @instance_new_events).map(&:to_klass_instance)
     end
 
+    # Projects the stream's events using the given projection class.
+    #
+    # Delegates to the projection's `process_events` class method, passing the stream's
+    # events and `as_of` timestamp. This provides a convenient way to materialize a
+    # projection directly from an event stream instance.
+    #
+    # @param projection_class [Class<Funes::Projection>] The projection class to use.
+    # @return [Object] The materialized state as defined by the projection's materialization model.
+    #
+    # @example
+    #   stream = OrderEventStream.for("order-123")
+    #   snapshot = stream.projected_with(OrderSummaryProjection)
+    #   snapshot.total # => 150.0
+    def projected_with(projection_class)
+      projection_class.process_events(events, @as_of)
+    end
+
     # Returns the parameter representation of the event stream for use in URLs.
     #
     # This method follows the ActiveRecord convention for URL generation, allowing EventStream
