@@ -149,6 +149,10 @@ class EventStreamTest < ActiveSupport::TestCase
           assert invalid_event.state_errors.empty?
         end
       end
+
+      test "#to_param delegates to idx" do
+        assert_equal "hadouken", event_stream.for("hadouken").to_param
+      end
     end
   end
 end
