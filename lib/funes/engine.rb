@@ -18,6 +18,8 @@ module Funes
 
     config.after_initialize do
       Funes::EventMetainformation.setup_attributes!
+
+      Funes::Event.filter_attributes = Rails.application.config.filter_parameters
     end
   end
 end

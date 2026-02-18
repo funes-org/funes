@@ -46,6 +46,7 @@ module Funes
   class Event
     include ActiveModel::Model
     include ActiveModel::Attributes
+    include Funes::Inspection
 
     # @!attribute [rw] adjacent_state_errors
     #   @return [ActiveModel::Errors] Validation errors from consistency projections.
@@ -90,17 +91,6 @@ module Funes
     #   event.persisted?  # => true (if no validation errors)
     def persisted?
       _event_entry.present?
-    end
-
-    # Custom string representation of the event.
-    #
-    # @return [String] A string showing the event class name and attributes.
-    #
-    # @example
-    #   event = Order::Placed.new(total: 99.99)
-    #   event.inspect  # => "<Order::Placed: {:total=>99.99}>"
-    def inspect
-      "<#{self.class.name}: #{attributes}>"
     end
 
     # Check if the event is valid.
