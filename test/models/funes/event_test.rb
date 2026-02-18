@@ -30,6 +30,19 @@ class Funes::EventTest < ActiveSupport::TestCase
     end
   end
 
+  describe "#created_at" do
+    it "returns nil for a new event" do
+      event = DummyEvent.new(value: 42)
+      assert_nil event.created_at
+    end
+
+    it "returns the _event_entry created_at when persisted" do
+      event = DummyEvent.new(value: 42)
+      event._event_entry = Funes::EventEntry.new(created_at: Time.current)
+      assert_equal event._event_entry.created_at, event.created_at
+    end
+  end
+
   describe "#persist!" do
     it "raises InvalidEventMetainformation when metainformation is invalid" do
       Funes.configure do |config|
