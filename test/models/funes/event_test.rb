@@ -38,9 +38,8 @@ class Funes::EventTest < ActiveSupport::TestCase
 
     it "returns the _event_entry created_at when persisted" do
       event = DummyEvent.new(value: 42)
-      timestamp = Time.current
-      event._event_entry = Funes::EventEntry.new(created_at: timestamp)
-      assert_equal timestamp, event.created_at
+      event._event_entry = Funes::EventEntry.new(created_at: Time.current)
+      assert_equal event._event_entry.created_at, event.created_at
     end
   end
 
