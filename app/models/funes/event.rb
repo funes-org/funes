@@ -93,6 +93,20 @@ module Funes
       _event_entry.present?
     end
 
+    # Returns the timestamp when the event was persisted.
+    #
+    # @return [Time, nil] The time the event was created, or `nil` if not yet persisted.
+    #
+    # @example
+    #   event = Order::Placed.new(total: 99.99)
+    #   event.created_at  # => nil
+    #
+    #   stream.append(event)
+    #   event.created_at  # => 2026-02-18 12:00:00 UTC
+    def created_at
+      _event_entry&.created_at
+    end
+
     # Check if the event is valid.
     #
     # An event is valid only if both its own validations pass AND it doesn't lead to an
