@@ -1,5 +1,6 @@
 require "funes/version"
 require "funes/configuration"
+require "funes/inspection"
 require "funes/event_metainformation_builder"
 require "funes/invalid_event_metainformation"
 require "funes/engine"
