@@ -41,6 +41,15 @@ class Funes::EventTest < ActiveSupport::TestCase
       event._event_entry = Funes::EventEntry.new(created_at: Time.current)
       assert_equal event._event_entry.created_at, event.created_at
     end
+
+    it "returns the timestamp set by the database when persisted" do
+      frozen_time = Time.current.change(usec: 0)
+      event = DummyEvent.new(value: 42)
+      travel_to frozen_time do
+        event.persist!("created-at-idx", 1)
+        assert_equal frozen_time, event.created_at
+      end
+    end
   end
 
   describe "#persist!" do

@@ -73,7 +73,8 @@ module Funes
             Funes::EventMetainformation.errors.full_messages.join(", ") unless Funes::EventMetainformation.valid?
 
       self._event_entry = Funes::EventEntry.create!(klass: self.class.name, idx:, version:, props: attributes,
-                                                    meta_info: Funes::EventMetainformation.attributes)
+                                                    meta_info: Funes::EventMetainformation.attributes,
+                                                    created_at: Time.current)
     end
 
     # Check if the event has been persisted to the database.
@@ -103,9 +104,7 @@ module Funes
     #
     #   stream.append(event)
     #   event.created_at  # => 2026-02-18 12:00:00 UTC
-    def created_at
-      _event_entry&.created_at
-    end
+    def created_at = _event_entry&.created_at
 
     # Check if the event is valid.
     #
