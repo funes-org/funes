@@ -52,6 +52,35 @@ class Funes::EventTest < ActiveSupport::TestCase
     end
   end
 
+  describe "#occurred_at" do
+    it "returns nil for a new event" do
+      event = DummyEvent.new(value: 42)
+      assert_nil event.occurred_at
+    end
+
+    it "returns the _event_entry occurred_at when persisted" do
+      event = DummyEvent.new(value: 42)
+      event._event_entry = Funes::EventEntry.new(occurred_at: Time.current)
+      assert_equal event._event_entry.occurred_at, event.occurred_at
+    end
+
+    it "defaults to created_at when at: is not provided" do
+      frozen_time = Time.current.change(usec: 0)
+      event = DummyEvent.new(value: 42)
+      travel_to frozen_time do
+        event.persist!("occurred-at-default-idx", 1)
+        assert_equal event.created_at, event.occurred_at
+      end
+    end
+
+    it "uses the at: value when provided" do
+      event = DummyEvent.new(value: 42)
+      explicit_time = Time.new(2025, 2, 15, 12, 0, 0)
+      event.persist!("occurred-at-explicit-idx", 1, at: explicit_time)
+      assert_equal explicit_time, event.occurred_at
+    end
+  end
+
   describe "#persist!" do
     it "raises InvalidEventMetainformation when metainformation is invalid" do
       Funes.configure do |config|
