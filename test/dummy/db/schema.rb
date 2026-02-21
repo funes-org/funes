@@ -27,7 +27,9 @@ ActiveRecord::Schema[7.1].define(version: 2025_09_27_111752) do
     t.json "meta_info"
     t.bigint "version", default: 1, null: false
     t.datetime "created_at", null: false
+    t.datetime "occurred_at", null: false
     t.index ["created_at"], name: "index_event_entries_on_created_at"
+    t.index ["occurred_at"], name: "index_event_entries_on_occurred_at"
     t.index ["idx", "version"], name: "index_event_entries_on_idx_and_version", unique: true
     t.index ["idx"], name: "index_event_entries_on_idx"
   end

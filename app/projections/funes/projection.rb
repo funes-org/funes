@@ -134,19 +134,19 @@ module Funes
       end
 
       # @!visibility private
-      def process_events(events_collection, as_of, consistency: false)
+      def process_events(events_collection, as_of, at: nil, consistency: false)
         new(self.instance_variable_get(:@interpretations),
             self.instance_variable_get(:@materialization_model),
             self.instance_variable_get(:@throws_on_unknown_events))
-          .process_events(events_collection, as_of, consistency: consistency)
+          .process_events(events_collection, as_of, at: at, consistency: consistency)
       end
 
       # @!visibility private
-      def materialize!(events_collection, idx, as_of)
+      def materialize!(events_collection, idx, as_of, at: nil)
         new(self.instance_variable_get(:@interpretations),
             self.instance_variable_get(:@materialization_model),
             self.instance_variable_get(:@throws_on_unknown_events))
-          .materialize!(events_collection, idx, as_of)
+          .materialize!(events_collection, idx, as_of, at: at)
       end
     end
 
@@ -158,31 +158,31 @@ module Funes
     end
 
     # @!visibility private
-    def process_events(events_collection, as_of, consistency: false)
-      initial_state = interpretations[:init].present? ? interpretations[:init].call(@materialization_model, as_of) : @materialization_model.new
+    def process_events(events_collection, as_of, at: nil, consistency: false)
+      initial_state = interpretations[:init].present? ? interpretations[:init].call(@materialization_model, at) : @materialization_model.new
       state = events_collection.inject(initial_state) do |previous_state, event|
         fn = @interpretations[event.class]
         if fn.nil? && throws_on_unknown_events?
           raise Funes::UnknownEvent, "Events of the type #{event.class} are not processable"
         end
 
-        result = fn.nil? ? previous_state : fn.call(previous_state, event, as_of)
+        result = fn.nil? ? previous_state : fn.call(previous_state, event, at)
 
         warn_about_ineffective_errors(event) unless consistency
 
         result
       end
 
-      state = interpretations[:final].call(state, as_of) if interpretations[:final].present?
+      state = interpretations[:final].call(state, at) if interpretations[:final].present?
       state
     end
 
     # @!visibility private
-    def materialize!(events_collection, idx, as_of)
+    def materialize!(events_collection, idx, as_of, at: nil)
       raise Funes::UnknownMaterializationModel,
             "There is no materialization model configured on #{self.class.name}" unless @materialization_model.present?
 
-      state = process_events(events_collection, as_of)
+      state = process_events(events_collection, as_of, at: at)
       materialized_model_instance = materialized_model_instance_based_on(state)
       if materialization_model_is_persistable?
         state.assign_attributes(idx:)

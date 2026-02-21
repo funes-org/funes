@@ -120,6 +120,27 @@ module Funes
         @async_projections << { class: projection, as_of_strategy: as_of, options: options }
       end
 
+      # Configures the event attribute used as a source for the actual time (`occurred_at`).
+      #
+      # When set, every event appended to this stream must have the specified attribute.
+      # Its value is used as the fallback for `occurred_at` when `at:` is not explicitly
+      # passed to `append`.
+      #
+      # @param [Symbol] attribute_name The event attribute name to read actual time from.
+      # @return [void]
+      #
+      # @example
+      #   class SalaryEventStream < Funes::EventStream
+      #     actual_time_attribute :at
+      #   end
+      def actual_time_attribute(attribute_name = nil)
+        if attribute_name
+          @actual_time_attribute = attribute_name
+        else
+          @actual_time_attribute
+        end
+      end
+
       # Create a new EventStream instance for the given entity identifier.
       #
       # @param [String] idx The entity identifier.
@@ -166,8 +187,10 @@ module Funes
     #   if event.errors[:base].present?
     #     # Race condition detected, retry logic here
     #   end
-    def append(new_event)
+    def append(new_event, at: nil)
       return new_event unless new_event.valid?
+
+      resolved_at = resolve_occurred_at(new_event, at)
 
       if consistency_projection.present?
         materialization = compute_projection_with_new_event(consistency_projection, new_event)
@@ -177,7 +200,7 @@ module Funes
 
       ActiveRecord::Base.transaction do
         begin
-          @instance_new_events << new_event.persist!(@idx, incremented_version)
+          @instance_new_events << new_event.persist!(@idx, incremented_version, at: resolved_at)
           run_transactional_projections
         rescue ActiveRecord::RecordNotUnique
           new_event._event_entry = nil
@@ -230,8 +253,9 @@ module Funes
     #   stream = OrderEventStream.for("order-123")
     #   snapshot = stream.projected_with(OrderSummaryProjection)
     #   snapshot.total # => 150.0
-    def projected_with(projection_class)
-      projection_class.process_events(events, @as_of)
+    def projected_with(projection_class, at: nil)
+      target_events = at ? filter_by_actual_time(events, at) : events
+      projection_class.process_events(target_events, @as_of, at: at)
     end
 
     # Returns the parameter representation of the event stream for use in URLs.
@@ -269,7 +293,7 @@ module Funes
       def previous_events
         @previous_events ||= Funes::EventEntry
                                .where(idx: @idx, created_at: ..@as_of)
-                               .order("created_at")
+                               .order(:occurred_at)
       end
 
       def last_event_creation_date
@@ -294,6 +318,38 @@ module Funes
         else
           raise ArgumentError, "Invalid as_of strategy: #{strategy.inspect}. " \
                                "Expected :last_event_time, :job_time, or a Proc"
+        end
+      end
+
+      def resolve_occurred_at(event, at)
+        attribute_at = actual_time_from_attribute(event)
+
+        at = at.beginning_of_day if at.is_a?(Date) && !at.is_a?(Time)
+        attribute_at = attribute_at.beginning_of_day if attribute_at.is_a?(Date) && !attribute_at.is_a?(Time)
+
+        if at && attribute_at && at != attribute_at
+          raise Funes::ConflictingActualTimeError,
+                "at: #{at} conflicts with event.#{self.class.actual_time_attribute}: #{attribute_at}"
+        end
+
+        at || attribute_at
+      end
+
+      def actual_time_from_attribute(event)
+        attr_name = self.class.actual_time_attribute
+        return nil unless attr_name
+
+        unless event.respond_to?(attr_name)
+          raise Funes::MissingActualTimeAttributeError,
+                "#{event.class} does not have attribute :#{attr_name} configured as actual_time_attribute on #{self.class}"
+        end
+
+        event.send(attr_name)
+      end
+
+      def filter_by_actual_time(events_list, at)
+        events_list.select do |event|
+          event.occurred_at <= at
         end
       end
 
