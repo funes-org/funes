@@ -68,13 +68,15 @@ module Funes
     end
 
     # @!visibility private
-    def persist!(idx, version)
+    def persist!(idx, version, at: nil)
       raise Funes::InvalidEventMetainformation,
             Funes::EventMetainformation.errors.full_messages.join(", ") unless Funes::EventMetainformation.valid?
 
+      now = Time.current
       self._event_entry = Funes::EventEntry.create!(klass: self.class.name, idx:, version:, props: attributes,
                                                     meta_info: Funes::EventMetainformation.attributes,
-                                                    created_at: Time.current)
+                                                    created_at: now,
+                                                    occurred_at: at || now)
     end
 
     # Check if the event has been persisted to the database.
@@ -105,6 +107,18 @@ module Funes
     #   stream.append(event)
     #   event.created_at  # => 2026-02-18 12:00:00 UTC
     def created_at = _event_entry&.created_at
+
+    # Returns the timestamp when the event actually occurred.
+    #
+    # When an event is recorded retroactively (with an explicit `at:` on append),
+    # this returns the actual time of the event. Otherwise, it equals `created_at`.
+    #
+    # @return [Time, nil] The actual time of the event, or `nil` if not yet persisted.
+    #
+    # @example
+    #   event = stream.append(Salary::Raised.new(amount: 6500), at: Time.new(2025, 2, 15))
+    #   event.occurred_at  # => 2025-02-15 00:00:00 UTC
+    def occurred_at = _event_entry&.occurred_at
 
     # Check if the event is valid.
     #

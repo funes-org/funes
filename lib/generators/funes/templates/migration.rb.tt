@@ -7,10 +7,12 @@ class CreateFunesEventsTable < ActiveRecord::Migration<%= migration_version %>
       t.column :meta_info, :<%= json_column_type %>
       t.column :version, :bigint, default: 1, null: false
       t.column :created_at, :datetime, null: false
+      t.column :occurred_at, :datetime, null: false
     end
 
     add_index :event_entries, :idx
     add_index :event_entries, :created_at
+    add_index :event_entries, :occurred_at
     add_index :event_entries, [ :idx, :version ], unique: true
   end
 end

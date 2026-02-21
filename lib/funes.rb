@@ -3,6 +3,8 @@ require "funes/configuration"
 require "funes/inspection"
 require "funes/event_metainformation_builder"
 require "funes/invalid_event_metainformation"
+require "funes/conflicting_actual_time_error"
+require "funes/missing_actual_time_attribute_error"
 require "funes/engine"
 
 # Funes is an event sourcing framework for Ruby on Rails.
