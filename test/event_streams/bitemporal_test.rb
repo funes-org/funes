@@ -100,13 +100,13 @@ class BitemporalTest < ActiveSupport::TestCase
       assert_equal feb_15, event.occurred_at
     end
 
-    it "falls back to created_at when event attribute is nil" do
-      idx = "salary-attr-fallback-#{SecureRandom.uuid}"
+    it "raises the proper exception when event's actual time attribute value is nil" do
+      idx = "salary-attr-nil-value-#{SecureRandom.uuid}"
       stream = stream_with_actual_time.for(idx)
 
-      event = stream.append(SalarySet.new(amount: 6000, at: nil))
-
-      assert_equal event.created_at, event.occurred_at
+      assert_raises Funes::MissingActualTimeAttributeError do
+        stream.append(SalarySet.new(amount: 6000, at: nil))
+      end
     end
 
     it "uses explicit at: when both at: and event attribute agree" do

@@ -344,7 +344,14 @@ module Funes
                 "#{event.class} does not have attribute :#{attr_name} configured as actual_time_attribute on #{self.class}"
         end
 
-        event.send(attr_name)
+        value = event.send(attr_name)
+
+        if value.nil?
+          raise Funes::MissingActualTimeAttributeError,
+                "#{event.class}##{attr_name} is nil but is configured as actual_time_attribute on #{self.class}"
+        end
+
+        value
       end
 
       def filter_by_actual_time(events_list, at)
