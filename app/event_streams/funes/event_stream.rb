@@ -9,11 +9,25 @@ module Funes
   # - **Transactional Projections:** Execute synchronously in the same database transaction as the event.
   # - **Async Projections:** Execute asynchronously via ActiveJob after the event is committed.
   #
-  # ## Temporal Queries
+  # ## Bitemporal Queries
   #
-  # EventStreams support temporal queries through the `as_of` parameter. When an EventStream is created
-  # with a specific timestamp, only events created before or at that timestamp are included, enabling
-  # point-in-time state reconstruction.
+  # EventStreams support two independent temporal dimensions:
+  #
+  # - **Record history** (`as_of`): Filters by `created_at` — "what did the system know at time T?"
+  #   Set via `EventStream.for(idx, as_of_time)`.
+  # - **Actual history** (`at`): Filters by `occurred_at` — "what had actually happened by time T?"
+  #   Set via `projected_with(projection, at: time)`.
+  #
+  # When both are used together, `as_of` determines which events are loaded (DB-level filter on
+  # `created_at`), and `at` further narrows which loaded events are projected (Ruby-level filter
+  # on `occurred_at`).
+  #
+  # ## Actual Time Attribute
+  #
+  # Streams can declare an `actual_time_attribute` to automatically extract the actual time from
+  # an event attribute. When configured, every event must have the attribute with a non-nil value.
+  # The explicit `at:` on `append` takes precedence; if both are present and differ, a
+  # {Funes::ConflictingActualTimeError} is raised.
   #
   # ## Concurrency Control
   #
@@ -28,6 +42,11 @@ module Funes
   #     add_async_projection OrderReportProjection, queue: :reports
   #   end
   #
+  # @example Define a stream with actual time extraction
+  #   class SalaryEventStream < Funes::EventStream
+  #     actual_time_attribute :at
+  #   end
+  #
   # @example Append events to a stream
   #   stream = OrderEventStream.for("order-123")
   #   event = stream.append(Order::Placed.new(total: 99.99))
@@ -38,9 +57,20 @@ module Funes
   #     puts "Event rejected: #{event.errors.full_messages}"
   #   end
   #
-  # @example Temporal query - get stream state as of a specific time
+  # @example Append a retroactive event with explicit actual time
+  #   stream.append(Salary::Raised.new(amount: 6500), at: Time.new(2025, 2, 15))
+  #
+  # @example Record history query - what the system knew at a point in time
   #   stream = OrderEventStream.for("order-123", 1.month.ago)
-  #   stream.events # => only events up to 1 month ago
+  #   stream.events # => only events recorded up to 1 month ago
+  #
+  # @example Actual history query - what had actually happened by a point in time
+  #   stream = SalaryEventStream.for("sally-123")
+  #   stream.projected_with(SalaryProjection, at: Time.new(2025, 2, 20))
+  #
+  # @example Full bitemporal query - combining both dimensions
+  #   stream = SalaryEventStream.for("sally-123", Time.new(2025, 3, 1))
+  #   stream.projected_with(SalaryProjection, at: Time.new(2025, 2, 20))
   class EventStream
     class << self
       # Register a consistency projection that validates business rules before persisting events.
@@ -164,17 +194,34 @@ module Funes
 
     # Append a new event to the stream.
     #
-    # This method validates the event, runs the consistency projection (if configured), persists the event
-    # with an incremented version number, and triggers transactional and async projections.
+    # This method validates the event, resolves the actual time (`occurred_at`), runs the consistency
+    # projection (if configured), persists the event with an incremented version number, and triggers
+    # transactional and async projections.
+    #
+    # The `occurred_at` value is resolved via a fallback chain:
+    # 1. Explicit `at:` parameter on this method
+    # 2. The event's `actual_time_attribute` value (if configured on the stream)
+    # 3. Same `Time.current` used for `created_at`
+    #
+    # `Date` values are coerced to `Time` via `beginning_of_day`.
     #
     # @param [Funes::Event] new_event The event to append to the stream.
+    # @param [Time, Date, nil] at The actual time when the event occurred. When provided, this overrides
+    #   the event's `actual_time_attribute` value. When nil, falls back to the attribute or `Time.current`.
     # @return [Funes::Event] The event object (check `valid?` to see if it was persisted).
+    # @raise [Funes::ConflictingActualTimeError] if both `at:` and the event's `actual_time_attribute`
+    #   are present with different values.
+    # @raise [Funes::MissingActualTimeAttributeError] if the stream declares `actual_time_attribute`
+    #   but the event doesn't have the attribute or its value is nil.
     #
     # @example Successful append
     #   event = stream.append(Order::Placed.new(total: 99.99))
     #   if event.valid?
     #     puts "Event persisted with version #{event.version}"
     #   end
+    #
+    # @example Append with explicit actual time
+    #   event = stream.append(Salary::Raised.new(amount: 6500), at: Time.new(2025, 2, 15))
     #
     # @example Handling validation failure
     #   event = stream.append(InvalidEvent.new)
@@ -243,16 +290,23 @@ module Funes
     # Projects the stream's events using the given projection class.
     #
     # Delegates to the projection's `process_events` class method, passing the stream's
-    # events and `as_of` timestamp. This provides a convenient way to materialize a
-    # projection directly from an event stream instance.
+    # events and `as_of` timestamp. When `at:` is provided, events are filtered to only
+    # include those where `occurred_at <= at` before projection.
     #
     # @param projection_class [Class<Funes::Projection>] The projection class to use.
+    # @param [Time, nil] at Optional actual-time cutoff. When provided, only events with
+    #   `occurred_at <= at` are included in the projection.
     # @return [Object] The materialized state as defined by the projection's materialization model.
     #
-    # @example
+    # @example Project current state
     #   stream = OrderEventStream.for("order-123")
     #   snapshot = stream.projected_with(OrderSummaryProjection)
     #   snapshot.total # => 150.0
+    #
+    # @example Project with actual-time filter
+    #   stream = SalaryEventStream.for("sally-123")
+    #   snapshot = stream.projected_with(SalaryProjection, at: Time.new(2025, 2, 20))
+    #   snapshot.salary # => only reflects events that actually occurred by Feb 20
     def projected_with(projection_class, at: nil)
       target_events = at ? filter_by_actual_time(events, at) : events
       projection_class.process_events(target_events, @as_of, at: at)

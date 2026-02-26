@@ -18,14 +18,18 @@ module Funes
   # projection has the same validation capabilities but can be persisted and serve the search patterns needed for
   # the application (read model or even [eager read derivation](https://martinfowler.com/bliki/EagerReadDerivation.html)).
   #
-  # ## Temporal Queries with `as_of`
+  # ## Bitemporal Queries
   #
-  # The `as_of` parameter enables temporal queries by allowing projections to be computed as they would have been
-  # at a specific point in time. When processing events, only events created before or at the `as_of` timestamp
-  # are included, enabling point-in-time snapshots of the system state.
+  # Projections support two temporal dimensions:
   #
-  # All interpretation blocks (`initial_state`, `interpretation_for`, and `final_state`) receive the `as_of` parameter,
-  # allowing custom temporal logic within projections.
+  # - **Record history** (`as_of`): Determines which events are loaded from the database (by `created_at`).
+  #   This is handled at the EventStream level before events reach the projection.
+  # - **Actual history** (`at`): Determines the actual-time context for the projection. Passed to all
+  #   interpretation blocks as the third argument.
+  #
+  # All interpretation blocks (`initial_state`, `interpretation_for`, and `final_state`) receive `at`
+  # as their temporal parameter, representing when events actually occurred rather than when the system
+  # recorded them. When `at` is `nil` (no actual-time filter), blocks receive `nil` in that position.
   class Projection
     class << self
       # Registers an interpretation block for a given event type.
@@ -36,16 +40,17 @@ module Funes
       # projections, errors added to the event have no rejection effect and will be logged as a warning.
       #
       # @param [Class<Funes::Event>] event_type The event class constant that will be interpreted.
-      # @yield [state, event, as_of] Block invoked with the current state, the event and the as_of marker. It should return a new version of the transient state
+      # @yield [state, event, at] Block invoked with the current state, the event and the actual-time context.
+      #   It should return a new version of the transient state.
       # @yieldparam [ActiveModel::Model, ActiveRecord::Base] transient_state The current transient state
       # @yieldparam [Funes::Event] event Event instance.
-      # @yieldparam [Time] as_of Context or timestamp used when interpreting.
+      # @yieldparam [Time, nil] at The actual-time cutoff passed to the projection, or nil if not filtering by actual time.
       # @yieldreturn [ActiveModel::Model, ActiveRecord::Base] the new transient state
       # @return [void]
       #
       # @example Rejecting an event in a consistency projection
       #   class YourProjection < Funes::Projection
-      #     interpretation_for Order::Placed do |transient_state, current_event, _as_of|
+      #     interpretation_for Order::Placed do |transient_state, current_event, _at|
       #       current_event.errors.add(:base, "Order total too high") if current_event.amount > 10_000
       #       transient_state.assign_attributes(total: (transient_state.total || 0) + current_event.amount)
       #       transient_state
@@ -61,15 +66,15 @@ module Funes
       # *Default behavior:* When no block is provided the initial state defaults to a new instance of
       # the configured materialization model.
       #
-      # @yield [materialization_model, as_of] Block invoked to produce the initial state.
+      # @yield [materialization_model, at] Block invoked to produce the initial state.
       # @yieldparam [Class<ActiveRecord::Base>, Class<ActiveModel::Model>] materialization_model The materialization model constant.
-      # @yieldparam [Time] as_of Context or timestamp used when interpreting.
+      # @yieldparam [Time, nil] at The actual-time cutoff passed to the projection, or nil if not filtering by actual time.
       # @yieldreturn [ActiveModel::Model, ActiveRecord::Base] the new transient state
       # @return [void]
       #
       # @example
       #   class YourProjection < Funes::Projection
-      #     initial_state do |materialization_model, _as_of|
+      #     initial_state do |materialization_model, _at|
       #       materialization_model.new(some: :specific, value: 42)
       #     end
       #   end
@@ -82,15 +87,15 @@ module Funes
       #
       # *Default behavior:* when this is not defined the projection does nothing after the interpretations
       #
-      # @yield [transient_state, as_of] Block invoked to produce the final state.
+      # @yield [transient_state, at] Block invoked to produce the final state.
       # @yieldparam [ActiveModel::Model, ActiveRecord::Base] transient_state The current transient state after all interpretations.
-      # @yieldparam [Time] as_of Context or timestamp used when interpreting.
+      # @yieldparam [Time, nil] at The actual-time cutoff passed to the projection, or nil if not filtering by actual time.
       # @yieldreturn [ActiveModel::Model, ActiveRecord::Base] the final transient state instance
       # @return [void]
       #
       # @example
       #   class YourProjection < Funes::Projection
-      #     final_state do |transient_state, as_of|
+      #     final_state do |transient_state, _at|
       #       # TODO...
       #     end
       #   end
