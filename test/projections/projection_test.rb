@@ -125,7 +125,7 @@ class ProjectionTest < ActiveSupport::TestCase
       end
 
       state = projection_with_at.process_events(
-        [Events4CurrentTest::Start.new(value: 1)],
+        [ Events4CurrentTest::Start.new(value: 1) ],
         as_of_time,
         at: at_time
       )
@@ -146,7 +146,7 @@ class ProjectionTest < ActiveSupport::TestCase
       end
 
       state = projection_fallback.process_events(
-        [Events4CurrentTest::Start.new(value: 1)],
+        [ Events4CurrentTest::Start.new(value: 1) ],
         as_of_time
       )
 
@@ -172,7 +172,7 @@ class ProjectionTest < ActiveSupport::TestCase
       end
 
       state = projection_with_final.process_events(
-        [Events4CurrentTest::Start.new(value: 1)],
+        [ Events4CurrentTest::Start.new(value: 1) ],
         as_of_time,
         at: at_time
       )
@@ -198,7 +198,7 @@ class ProjectionTest < ActiveSupport::TestCase
       end
 
       state = projection_with_final.process_events(
-        [Events4CurrentTest::Start.new(value: 1)],
+        [ Events4CurrentTest::Start.new(value: 1) ],
         as_of_time
       )
 
@@ -223,7 +223,7 @@ class ProjectionTest < ActiveSupport::TestCase
       end
 
       state = projection_with_init.process_events(
-        [Events4CurrentTest::Start.new(value: 1)],
+        [ Events4CurrentTest::Start.new(value: 1) ],
         as_of_time,
         at: at_time
       )
@@ -248,7 +248,7 @@ class ProjectionTest < ActiveSupport::TestCase
       end
 
       state = projection_with_init.process_events(
-        [Events4CurrentTest::Start.new(value: 1)],
+        [ Events4CurrentTest::Start.new(value: 1) ],
         as_of_time
       )
 
