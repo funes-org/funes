@@ -120,6 +120,18 @@ module Funes
     #   event.occurred_at  # => 2025-02-15 00:00:00 UTC
     def occurred_at = _event_entry&.occurred_at
 
+    # Returns the version number of the event within its stream.
+    #
+    # Each event in a stream gets an incrementing version number used for optimistic
+    # concurrency control. The version is assigned when the event is persisted.
+    #
+    # @return [Integer, nil] The version number, or `nil` if not yet persisted.
+    #
+    # @example
+    #   event = stream.append(Order::Placed.new(total: 99.99))
+    #   event.version  # => 1
+    def version = _event_entry&.version
+
     # Check if the event is valid.
     #
     # An event is valid only if both its own validations pass AND it doesn't lead to an

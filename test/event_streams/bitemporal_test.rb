@@ -248,6 +248,25 @@ class BitemporalTest < ActiveSupport::TestCase
     end
   end
 
+  describe "version assignment with retroactive events" do
+    it "assigns correct incremental versions when events are appended out of occurred_at order" do
+      idx = "salary-version-retroactive-#{SecureRandom.uuid}"
+
+      # Append event that occurred in March
+      travel_to Time.new(2025, 3, 1, 12, 0, 0) do
+        stream_without_actual_time.for(idx).append(SalarySet.new(amount: 6000), at: Time.new(2025, 3, 1))
+      end
+
+      # Later, append a retroactive event that occurred in January
+      travel_to Time.new(2025, 4, 1, 12, 0, 0) do
+        event = stream_without_actual_time.for(idx).append(SalaryRaised.new(amount: 6500), at: Time.new(2025, 1, 15))
+
+        assert event.persisted?, "Retroactive event should persist without RecordNotUnique"
+        assert_equal 2, event.version
+      end
+    end
+  end
+
   describe "Date coercion" do
     it "coerces Date to beginning_of_day when passed as at: on append" do
       idx = "salary-date-coerce-#{SecureRandom.uuid}"

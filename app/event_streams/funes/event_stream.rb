@@ -415,7 +415,9 @@ module Funes
       end
 
       def incremented_version
-        (@instance_new_events.last&.version || previous_events.last&.version || 0) + 1
+        previous_versions = previous_events.pluck(:version)
+        new_versions = @instance_new_events.map(&:version)
+        ((previous_versions + new_versions).max || 0) + 1
       end
 
       def transfer_interpretation_errors(event)

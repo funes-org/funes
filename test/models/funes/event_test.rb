@@ -81,6 +81,25 @@ class Funes::EventTest < ActiveSupport::TestCase
     end
   end
 
+  describe "#version" do
+    it "returns nil for a new event" do
+      event = DummyEvent.new(value: 42)
+      assert_nil event.version
+    end
+
+    it "returns the _event_entry version when persisted" do
+      event = DummyEvent.new(value: 42)
+      event._event_entry = Funes::EventEntry.new(version: 3)
+      assert_equal 3, event.version
+    end
+
+    it "returns the assigned version after persist!" do
+      event = DummyEvent.new(value: 42)
+      event.persist!("version-test-idx", 5)
+      assert_equal 5, event.version
+    end
+  end
+
   describe "#persist!" do
     it "raises InvalidEventMetainformation when metainformation is invalid" do
       Funes.configure do |config|
