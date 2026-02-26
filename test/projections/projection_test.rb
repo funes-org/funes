@@ -102,6 +102,160 @@ class ProjectionTest < ActiveSupport::TestCase
     end
   end
 
+  describe "temporal argument fallback (at || as_of) in process_events" do
+    temporal_materialization = Class.new do
+      include ActiveModel::Model
+      include ActiveModel::Attributes
+
+      attribute :value, :integer
+      attribute :temporal_arg, :datetime
+    end
+
+    it "passes at to interpretation blocks when at is provided" do
+      at_time = Time.new(2025, 6, 15, 12, 0, 0)
+      as_of_time = Time.new(2025, 7, 1, 12, 0, 0)
+
+      projection_with_at = Class.new(Funes::Projection) do
+        materialization_model temporal_materialization
+
+        interpretation_for Events4CurrentTest::Start do |state, event, temporal|
+          state.assign_attributes(value: event.value, temporal_arg: temporal)
+          state
+        end
+      end
+
+      state = projection_with_at.process_events(
+        [Events4CurrentTest::Start.new(value: 1)],
+        as_of_time,
+        at: at_time
+      )
+
+      assert_equal at_time, state.temporal_arg
+    end
+
+    it "falls back to as_of in interpretation blocks when at is nil" do
+      as_of_time = Time.new(2025, 7, 1, 12, 0, 0)
+
+      projection_fallback = Class.new(Funes::Projection) do
+        materialization_model temporal_materialization
+
+        interpretation_for Events4CurrentTest::Start do |state, event, temporal|
+          state.assign_attributes(value: event.value, temporal_arg: temporal)
+          state
+        end
+      end
+
+      state = projection_fallback.process_events(
+        [Events4CurrentTest::Start.new(value: 1)],
+        as_of_time
+      )
+
+      assert_equal as_of_time, state.temporal_arg
+    end
+
+    it "passes at to final_state block when at is provided" do
+      at_time = Time.new(2025, 6, 15, 12, 0, 0)
+      as_of_time = Time.new(2025, 7, 1, 12, 0, 0)
+
+      projection_with_final = Class.new(Funes::Projection) do
+        materialization_model temporal_materialization
+
+        interpretation_for Events4CurrentTest::Start do |state, event, _temporal|
+          state.assign_attributes(value: event.value)
+          state
+        end
+
+        final_state do |state, temporal|
+          state.assign_attributes(temporal_arg: temporal)
+          state
+        end
+      end
+
+      state = projection_with_final.process_events(
+        [Events4CurrentTest::Start.new(value: 1)],
+        as_of_time,
+        at: at_time
+      )
+
+      assert_equal at_time, state.temporal_arg
+    end
+
+    it "falls back to as_of in final_state block when at is nil" do
+      as_of_time = Time.new(2025, 7, 1, 12, 0, 0)
+
+      projection_with_final = Class.new(Funes::Projection) do
+        materialization_model temporal_materialization
+
+        interpretation_for Events4CurrentTest::Start do |state, event, _temporal|
+          state.assign_attributes(value: event.value)
+          state
+        end
+
+        final_state do |state, temporal|
+          state.assign_attributes(temporal_arg: temporal)
+          state
+        end
+      end
+
+      state = projection_with_final.process_events(
+        [Events4CurrentTest::Start.new(value: 1)],
+        as_of_time
+      )
+
+      assert_equal as_of_time, state.temporal_arg
+    end
+
+    it "passes at to initial_state block when at is provided" do
+      at_time = Time.new(2025, 6, 15, 12, 0, 0)
+      as_of_time = Time.new(2025, 7, 1, 12, 0, 0)
+
+      projection_with_init = Class.new(Funes::Projection) do
+        materialization_model temporal_materialization
+
+        initial_state do |model, temporal|
+          model.new(temporal_arg: temporal)
+        end
+
+        interpretation_for Events4CurrentTest::Start do |state, event, _temporal|
+          state.assign_attributes(value: event.value)
+          state
+        end
+      end
+
+      state = projection_with_init.process_events(
+        [Events4CurrentTest::Start.new(value: 1)],
+        as_of_time,
+        at: at_time
+      )
+
+      assert_equal at_time, state.temporal_arg
+    end
+
+    it "falls back to as_of in initial_state block when at is nil" do
+      as_of_time = Time.new(2025, 7, 1, 12, 0, 0)
+
+      projection_with_init = Class.new(Funes::Projection) do
+        materialization_model temporal_materialization
+
+        initial_state do |model, temporal|
+          model.new(temporal_arg: temporal)
+        end
+
+        interpretation_for Events4CurrentTest::Start do |state, event, _temporal|
+          state.assign_attributes(value: event.value)
+          state
+        end
+      end
+
+      state = projection_with_init.process_events(
+        [Events4CurrentTest::Start.new(value: 1)],
+        as_of_time
+      )
+
+      assert_equal as_of_time, state.temporal_arg
+    end
+  end
+
   describe "persistence management" do
     projection_with_activemodel_as_materialization_model = Class.new(Funes::Projection) do
       materialization_model activemodel_materialization

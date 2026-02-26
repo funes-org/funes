@@ -164,21 +164,21 @@ module Funes
 
     # @!visibility private
     def process_events(events_collection, as_of, at: nil, consistency: false)
-      initial_state = interpretations[:init].present? ? interpretations[:init].call(@materialization_model, at) : @materialization_model.new
+      initial_state = interpretations[:init].present? ? interpretations[:init].call(@materialization_model, at || as_of) : @materialization_model.new
       state = events_collection.inject(initial_state) do |previous_state, event|
         fn = @interpretations[event.class]
         if fn.nil? && throws_on_unknown_events?
           raise Funes::UnknownEvent, "Events of the type #{event.class} are not processable"
         end
 
-        result = fn.nil? ? previous_state : fn.call(previous_state, event, at)
+        result = fn.nil? ? previous_state : fn.call(previous_state, event, at || as_of)
 
         warn_about_ineffective_errors(event) unless consistency
 
         result
       end
 
-      state = interpretations[:final].call(state, at) if interpretations[:final].present?
+      state = interpretations[:final].call(state, at || as_of) if interpretations[:final].present?
       state
     end
 
