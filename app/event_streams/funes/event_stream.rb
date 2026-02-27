@@ -116,13 +116,13 @@ module Funes
       # Async projections are scheduled via ActiveJob after the event transaction commits. You can
       # pass any ActiveJob options (queue, wait, wait_until, priority, etc.) to control job scheduling.
       #
-      # The `temporal_context` parameter controls the actual-time context passed to the projection job:
+      # The `temporal_context` parameter controls the temporal reference passed to the projection job:
       # - `:last_event_time` (default) - Uses the creation time of the last event
       # - `:job_time` - Uses Time.current when the job executes
       # - Proc/Lambda - Custom logic that receives the last event and returns a Time object
       #
       # @param [Class<Funes::Projection>] projection The projection class to execute asynchronously.
-      # @param [Symbol, Proc] temporal_context Strategy for determining the actual-time context (:last_event_time, :job_time, or Proc).
+      # @param [Symbol, Proc] temporal_context Strategy for determining the temporal reference (:last_event_time, :job_time, or Proc).
       # @param [Hash] options ActiveJob options for scheduling (queue, wait, wait_until, priority, etc.).
       # @return [void]
       #
@@ -294,7 +294,7 @@ module Funes
     # include those where `occurred_at <= at` before projection.
     #
     # @param projection_class [Class<Funes::Projection>] The projection class to use.
-    # @param [Time, nil] at Optional actual-time cutoff. When provided, only events with
+    # @param [Time, nil] at Optional temporal reference. When provided, only events with
     #   `occurred_at <= at` are included in the projection.
     # @return [Object] The materialized state as defined by the projection's materialization model.
     #

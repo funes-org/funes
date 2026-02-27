@@ -24,11 +24,11 @@ module Funes
   #
   # - **Record history** (`as_of`): Determines which events are loaded from the database (by `created_at`).
   #   This is handled at the EventStream level before events reach the projection.
-  # - **Actual history** (`at`): Determines the actual-time context for the projection. Passed to all
+  # - **Actual history** (`at`): The temporal reference for the projection. Passed to all
   #   interpretation blocks as the third argument.
   #
   # All interpretation blocks (`initial_state`, `interpretation_for`, and `final_state`) receive `at`
-  # as their temporal parameter, representing when events actually occurred rather than when the system
+  # as their temporal reference, representing when events actually occurred rather than when the system
   # recorded them.
   class Projection
     class << self
@@ -40,7 +40,7 @@ module Funes
       # projections, errors added to the event have no rejection effect and will be logged as a warning.
       #
       # @param [Class<Funes::Event>] event_type The event class constant that will be interpreted.
-      # @yield [state, event, at] Block invoked with the current state, the event and the actual-time context.
+      # @yield [state, event, at] Block invoked with the current state, the event and the temporal reference.
       #   It should return a new version of the transient state.
       # @yieldparam [ActiveModel::Model, ActiveRecord::Base] transient_state The current transient state
       # @yieldparam [Funes::Event] event Event instance.
