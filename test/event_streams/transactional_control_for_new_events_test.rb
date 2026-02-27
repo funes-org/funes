@@ -63,7 +63,8 @@ class TransactionalControlForNewEventsTest < ActiveSupport::TestCase
       Funes::EventEntry.create!(klass: Events::ValidEvent.name,
                                 idx: idx,
                                 props: { value: 100 },
-                                version: 1)
+                                version: 1,
+                                occurred_at: Time.current)
 
       assert_no_difference -> { UnitTests::Materialization.count }, "No event should be created" do
         event_stream_instance.append(event)

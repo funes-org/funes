@@ -21,12 +21,12 @@ class Funes::ProjectionTestHelperTest < ActiveSupport::TestCase
   end
 
   class TestProjection < Funes::Projection
-    interpretation_for TestEvent do |state, event, as_of|
+    interpretation_for TestEvent do |state, event, at|
       state.assign_attributes(
         total: state.total + event.amount,
         count: state.count + 1,
         last_note: event.note,
-        recorded_at: as_of
+        recorded_at: at
       )
       state
     end
@@ -35,14 +35,14 @@ class Funes::ProjectionTestHelperTest < ActiveSupport::TestCase
   class InitialStateProjection < Funes::Projection
     materialization_model TestState
 
-    initial_state do |materialization_model, as_of|
-      materialization_model.new(total: 42, recorded_at: as_of)
+    initial_state do |materialization_model, at|
+      materialization_model.new(total: 42, recorded_at: at)
     end
   end
 
   class FinalStateProjection < Funes::Projection
-    final_state do |state, as_of|
-      state.assign_attributes(last_note: "finalized", recorded_at: as_of)
+    final_state do |state, at|
+      state.assign_attributes(last_note: "finalized", recorded_at: at)
       state
     end
   end
@@ -55,13 +55,13 @@ class Funes::ProjectionTestHelperTest < ActiveSupport::TestCase
       assert_equal 42, result.total
     end
 
-    it "passes as_of parameter to initial_state block" do
-      as_of = Time.new(2023, 5, 10, 10, 30, 0)
+    it "passes at parameter to initial_state block" do
+      at = Time.new(2023, 5, 10, 10, 30, 0)
 
-      assert_equal as_of, build_initial_state_based_on(InitialStateProjection, as_of).recorded_at
+      assert_equal at, build_initial_state_based_on(InitialStateProjection, at).recorded_at
     end
 
-    it "uses Time.current as default as_of when not provided" do
+    it "uses Time.current as default at when not provided" do
       freeze_time do
         assert_equal Time.current, build_initial_state_based_on(InitialStateProjection).recorded_at
       end
@@ -97,15 +97,15 @@ class Funes::ProjectionTestHelperTest < ActiveSupport::TestCase
       assert_equal "second", state.last_note
     end
 
-    it "passes as_of parameter to interpretation block" do
+    it "passes at parameter to interpretation block" do
       initial_state = TestState.new
       event = TestEvent.new(amount: 100, note: "test")
-      as_of = Time.new(2023, 5, 10, 10, 30, 0)
+      at = Time.new(2023, 5, 10, 10, 30, 0)
 
-      assert_equal as_of, interpret_event_based_on(TestProjection, event, initial_state, as_of).recorded_at
+      assert_equal at, interpret_event_based_on(TestProjection, event, initial_state, at).recorded_at
     end
 
-    it "uses Time.current as default as_of when not provided" do
+    it "uses Time.current as default at when not provided" do
       initial_state = TestState.new
       event = TestEvent.new(amount: 100, note: "test")
 
@@ -124,14 +124,14 @@ class Funes::ProjectionTestHelperTest < ActiveSupport::TestCase
       assert_equal 100, result.total
     end
 
-    it "passes as_of parameter to final_state block" do
-      as_of = Time.new(2023, 5, 10, 10, 30, 0)
+    it "passes at parameter to final_state block" do
+      at = Time.new(2023, 5, 10, 10, 30, 0)
       state = TestState.new
 
-      assert_equal as_of, apply_final_state_based_on(FinalStateProjection, state, as_of).recorded_at
+      assert_equal at, apply_final_state_based_on(FinalStateProjection, state, at).recorded_at
     end
 
-    it "uses Time.current as default as_of when not provided" do
+    it "uses Time.current as default at when not provided" do
       freeze_time do
         state = TestState.new
 

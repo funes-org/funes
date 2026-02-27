@@ -27,7 +27,7 @@ module Funes
     # @param [Class<Funes::Projection>] projection_class The projection class being tested.
     # @param [Funes::Event] event_instance The event to interpret.
     # @param [ActiveModel::Model, ActiveRecord::Base] previous_state The state before applying the event.
-    # @param [Time, nil] as_of Optional timestamp for temporal logic. Defaults to Time.current.
+    # @param [Time] at The temporal reference point. Defaults to Time.current.
     # @return [ActiveModel::Model, ActiveRecord::Base] The new state after applying the interpretation.
     #
     # @example Test a single interpretation
@@ -46,9 +46,9 @@ module Funes
     #
     #   assert_equal -5, result.quantity_on_hand
     #   refute result.valid?
-    def interpret_event_based_on(projection_class, event_instance, previous_state, as_of = Time.current)
+    def interpret_event_based_on(projection_class, event_instance, previous_state, at = Time.current)
       projection_class.instance_variable_get(:@interpretations)[event_instance.class]
-                      .call(previous_state, event_instance, as_of)
+                      .call(previous_state, event_instance, at)
     end
 
     # Test an initial_state block in isolation.
@@ -58,7 +58,7 @@ module Funes
     # processing entire event streams.
     #
     # @param [Class<Funes::Projection>] projection_class The projection class being tested.
-    # @param [Time, nil] as_of Optional timestamp for temporal logic. Defaults to Time.current.
+    # @param [Time] at The temporal reference point. Defaults to Time.current.
     # @return [ActiveModel::Model, ActiveRecord::Base] The initial state produced by the projection.
     #
     # @example Test initial state construction
@@ -67,14 +67,14 @@ module Funes
     #   assert_equal 0, result.quantity_on_hand
     #
     # @example Test with a specific timestamp
-    #   as_of = Time.new(2023, 5, 10)
+    #   at = Time.new(2023, 5, 10)
     #
-    #   result = build_initial_state_based_on(InventorySnapshotProjection, as_of)
+    #   result = build_initial_state_based_on(InventorySnapshotProjection, at)
     #
-    #   assert_equal as_of, result.created_at
-    def build_initial_state_based_on(projection_class, as_of = Time.current)
+    #   assert_equal at, result.created_at
+    def build_initial_state_based_on(projection_class, at = Time.current)
       projection_class.instance_variable_get(:@interpretations)[:init]
-                      .call(projection_class.instance_variable_get(:@materialization_model), as_of)
+                      .call(projection_class.instance_variable_get(:@materialization_model), at)
     end
 
     # Test a final_state block in isolation.
@@ -85,7 +85,7 @@ module Funes
     #
     # @param [Class<Funes::Projection>] projection_class The projection class being tested.
     # @param [ActiveModel::Model, ActiveRecord::Base] previous_state The state before applying the final transformation.
-    # @param [Time, nil] as_of Optional timestamp for temporal logic. Defaults to Time.current.
+    # @param [Time] at The temporal reference point. Defaults to Time.current.
     # @return [ActiveModel::Model, ActiveRecord::Base] The final state after applying the transformation.
     #
     # @example Test final state transformation
@@ -97,14 +97,14 @@ module Funes
     #
     # @example Test with a specific timestamp
     #   state = InventorySnapshot.new(quantity_on_hand: 10)
-    #   as_of = Time.new(2023, 5, 10)
+    #   at = Time.new(2023, 5, 10)
     #
-    #   result = apply_final_state_based_on(InventorySnapshotProjection, state, as_of)
+    #   result = apply_final_state_based_on(InventorySnapshotProjection, state, at)
     #
-    #   assert_equal as_of, result.finalized_at
-    def apply_final_state_based_on(projection_class, previous_state, as_of = Time.current)
+    #   assert_equal at, result.finalized_at
+    def apply_final_state_based_on(projection_class, previous_state, at = Time.current)
       projection_class.instance_variable_get(:@interpretations)[:final]
-                      .call(previous_state, as_of)
+                      .call(previous_state, at)
     end
   end
 end

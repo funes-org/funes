@@ -3,6 +3,8 @@ require "funes/configuration"
 require "funes/inspection"
 require "funes/event_metainformation_builder"
 require "funes/invalid_event_metainformation"
+require "funes/conflicting_actual_time_error"
+require "funes/missing_actual_time_attribute_error"
 require "funes/engine"
 
 # Funes is an event sourcing framework for Ruby on Rails.
@@ -40,7 +42,7 @@ require "funes/engine"
 #    class OrderProjection < Funes::Projection
 #      materialization_model OrderSnapshot
 #
-#      interpretation_for Order::Placed do |state, event, as_of|
+#      interpretation_for Order::Placed do |state, event, _at|
 #        state.assign_attributes(total: event.total)
 #        state
 #      end
@@ -67,6 +69,17 @@ require "funes/engine"
 # - **Consistency Projection**: Validates business rules before persisting events
 # - **Transactional Projections**: Execute synchronously in the same database transaction
 # - **Async Projections**: Execute asynchronously via ActiveJob
+#
+# ## Bitemporal History
+#
+# Funes supports two independent temporal dimensions:
+#
+# - **Record history** (`as_of` / `created_at`): When the system learned about an event
+# - **Actual history** (`at` / `occurred_at`): When the event actually occurred in the real world
+#
+# This enables queries like "what did the system know at time T?" (`as_of`) and
+# "what had actually happened by time T?" (`at`), as well as full bitemporal queries
+# combining both dimensions.
 #
 # @see Funes::Event
 # @see Funes::EventStream

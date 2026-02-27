@@ -9,7 +9,7 @@ module Funes
   #   class StrictProjection < Funes::Projection
   #     raise_on_unknown_events
   #
-  #     interpretation_for OrderPlaced do |state, event, as_of|
+  #     interpretation_for OrderPlaced do |state, event, _at|
   #       # ...
   #     end
   #   end

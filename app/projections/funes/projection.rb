@@ -18,14 +18,18 @@ module Funes
   # projection has the same validation capabilities but can be persisted and serve the search patterns needed for
   # the application (read model or even [eager read derivation](https://martinfowler.com/bliki/EagerReadDerivation.html)).
   #
-  # ## Temporal Queries with `as_of`
+  # ## Bitemporal Queries
   #
-  # The `as_of` parameter enables temporal queries by allowing projections to be computed as they would have been
-  # at a specific point in time. When processing events, only events created before or at the `as_of` timestamp
-  # are included, enabling point-in-time snapshots of the system state.
+  # Projections support two temporal dimensions:
   #
-  # All interpretation blocks (`initial_state`, `interpretation_for`, and `final_state`) receive the `as_of` parameter,
-  # allowing custom temporal logic within projections.
+  # - **Record history** (`as_of`): Determines which events are loaded from the database (by `created_at`).
+  #   This is handled at the EventStream level before events reach the projection.
+  # - **Actual history** (`at`): The temporal reference for the projection. Passed to all
+  #   interpretation blocks as the third argument.
+  #
+  # All interpretation blocks (`initial_state`, `interpretation_for`, and `final_state`) receive `at`
+  # as their temporal reference, representing when events actually occurred rather than when the system
+  # recorded them.
   class Projection
     class << self
       # Registers an interpretation block for a given event type.
@@ -36,16 +40,17 @@ module Funes
       # projections, errors added to the event have no rejection effect and will be logged as a warning.
       #
       # @param [Class<Funes::Event>] event_type The event class constant that will be interpreted.
-      # @yield [state, event, as_of] Block invoked with the current state, the event and the as_of marker. It should return a new version of the transient state
+      # @yield [state, event, at] Block invoked with the current state, the event and the temporal reference.
+      #   It should return a new version of the transient state.
       # @yieldparam [ActiveModel::Model, ActiveRecord::Base] transient_state The current transient state
       # @yieldparam [Funes::Event] event Event instance.
-      # @yieldparam [Time] as_of Context or timestamp used when interpreting.
+      # @yieldparam [Time] at The temporal reference point for the projection.
       # @yieldreturn [ActiveModel::Model, ActiveRecord::Base] the new transient state
       # @return [void]
       #
       # @example Rejecting an event in a consistency projection
       #   class YourProjection < Funes::Projection
-      #     interpretation_for Order::Placed do |transient_state, current_event, _as_of|
+      #     interpretation_for Order::Placed do |transient_state, current_event, _at|
       #       current_event.errors.add(:base, "Order total too high") if current_event.amount > 10_000
       #       transient_state.assign_attributes(total: (transient_state.total || 0) + current_event.amount)
       #       transient_state
@@ -61,15 +66,15 @@ module Funes
       # *Default behavior:* When no block is provided the initial state defaults to a new instance of
       # the configured materialization model.
       #
-      # @yield [materialization_model, as_of] Block invoked to produce the initial state.
+      # @yield [materialization_model, at] Block invoked to produce the initial state.
       # @yieldparam [Class<ActiveRecord::Base>, Class<ActiveModel::Model>] materialization_model The materialization model constant.
-      # @yieldparam [Time] as_of Context or timestamp used when interpreting.
+      # @yieldparam [Time] at The temporal reference point for the projection.
       # @yieldreturn [ActiveModel::Model, ActiveRecord::Base] the new transient state
       # @return [void]
       #
       # @example
       #   class YourProjection < Funes::Projection
-      #     initial_state do |materialization_model, _as_of|
+      #     initial_state do |materialization_model, _at|
       #       materialization_model.new(some: :specific, value: 42)
       #     end
       #   end
@@ -82,15 +87,15 @@ module Funes
       #
       # *Default behavior:* when this is not defined the projection does nothing after the interpretations
       #
-      # @yield [transient_state, as_of] Block invoked to produce the final state.
+      # @yield [transient_state, at] Block invoked to produce the final state.
       # @yieldparam [ActiveModel::Model, ActiveRecord::Base] transient_state The current transient state after all interpretations.
-      # @yieldparam [Time] as_of Context or timestamp used when interpreting.
+      # @yieldparam [Time] at The temporal reference point for the projection.
       # @yieldreturn [ActiveModel::Model, ActiveRecord::Base] the final transient state instance
       # @return [void]
       #
       # @example
       #   class YourProjection < Funes::Projection
-      #     final_state do |transient_state, as_of|
+      #     final_state do |transient_state, _at|
       #       # TODO...
       #     end
       #   end
@@ -134,19 +139,19 @@ module Funes
       end
 
       # @!visibility private
-      def process_events(events_collection, as_of, consistency: false)
+      def process_events(events_collection, as_of, at: nil, consistency: false)
         new(self.instance_variable_get(:@interpretations),
             self.instance_variable_get(:@materialization_model),
             self.instance_variable_get(:@throws_on_unknown_events))
-          .process_events(events_collection, as_of, consistency: consistency)
+          .process_events(events_collection, as_of, at: at, consistency: consistency)
       end
 
       # @!visibility private
-      def materialize!(events_collection, idx, as_of)
+      def materialize!(events_collection, idx, as_of, at: nil)
         new(self.instance_variable_get(:@interpretations),
             self.instance_variable_get(:@materialization_model),
             self.instance_variable_get(:@throws_on_unknown_events))
-          .materialize!(events_collection, idx, as_of)
+          .materialize!(events_collection, idx, as_of, at: at)
       end
     end
 
@@ -158,31 +163,31 @@ module Funes
     end
 
     # @!visibility private
-    def process_events(events_collection, as_of, consistency: false)
-      initial_state = interpretations[:init].present? ? interpretations[:init].call(@materialization_model, as_of) : @materialization_model.new
+    def process_events(events_collection, as_of, at: nil, consistency: false)
+      initial_state = interpretations[:init].present? ? interpretations[:init].call(@materialization_model, at || as_of) : @materialization_model.new
       state = events_collection.inject(initial_state) do |previous_state, event|
         fn = @interpretations[event.class]
         if fn.nil? && throws_on_unknown_events?
           raise Funes::UnknownEvent, "Events of the type #{event.class} are not processable"
         end
 
-        result = fn.nil? ? previous_state : fn.call(previous_state, event, as_of)
+        result = fn.nil? ? previous_state : fn.call(previous_state, event, at || as_of)
 
         warn_about_ineffective_errors(event) unless consistency
 
         result
       end
 
-      state = interpretations[:final].call(state, as_of) if interpretations[:final].present?
+      state = interpretations[:final].call(state, at || as_of) if interpretations[:final].present?
       state
     end
 
     # @!visibility private
-    def materialize!(events_collection, idx, as_of)
+    def materialize!(events_collection, idx, as_of, at: nil)
       raise Funes::UnknownMaterializationModel,
             "There is no materialization model configured on #{self.class.name}" unless @materialization_model.present?
 
-      state = process_events(events_collection, as_of)
+      state = process_events(events_collection, as_of, at: at)
       materialized_model_instance = materialized_model_instance_based_on(state)
       if materialization_model_is_persistable?
         state.assign_attributes(idx:)
