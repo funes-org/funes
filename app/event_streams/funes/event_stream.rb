@@ -116,13 +116,13 @@ module Funes
       # Async projections are scheduled via ActiveJob after the event transaction commits. You can
       # pass any ActiveJob options (queue, wait, wait_until, priority, etc.) to control job scheduling.
       #
-      # The `as_of` parameter controls the timestamp used when the projection job executes:
+      # The `temporal_context` parameter controls the actual-time context passed to the projection job:
       # - `:last_event_time` (default) - Uses the creation time of the last event
       # - `:job_time` - Uses Time.current when the job executes
       # - Proc/Lambda - Custom logic that receives the last event and returns a Time object
       #
       # @param [Class<Funes::Projection>] projection The projection class to execute asynchronously.
-      # @param [Symbol, Proc] as_of Strategy for determining the as_of timestamp (:last_event_time, :job_time, or Proc).
+      # @param [Symbol, Proc] temporal_context Strategy for determining the actual-time context (:last_event_time, :job_time, or Proc).
       # @param [Hash] options ActiveJob options for scheduling (queue, wait, wait_until, priority, etc.).
       # @return [void]
       #
@@ -138,16 +138,16 @@ module Funes
       #
       # @example Use job execution time instead of event time
       #   class OrderEventStream < Funes::EventStream
-      #     add_async_projection RealtimeProjection, as_of: :job_time
+      #     add_async_projection RealtimeProjection, temporal_context: :job_time
       #   end
       #
-      # @example Custom as_of logic with proc
+      # @example Custom temporal_context logic with proc
       #   class OrderEventStream < Funes::EventStream
-      #     add_async_projection EndOfDayProjection, as_of: ->(last_event) { last_event.created_at.beginning_of_day }
+      #     add_async_projection EndOfDayProjection, temporal_context: ->(last_event) { last_event.created_at.beginning_of_day }
       #   end
-      def add_async_projection(projection, as_of: :last_event_time, **options)
+      def add_async_projection(projection, temporal_context: :last_event_time, **options)
         @async_projections ||= []
-        @async_projections << { class: projection, as_of_strategy: as_of, options: options }
+        @async_projections << { class: projection, temporal_context: temporal_context, options: options }
       end
 
       # Configures the event attribute used as a source for the actual time (`occurred_at`).
@@ -333,14 +333,14 @@ module Funes
     private
       def run_transactional_projections
         transactional_projections.each do |projection_class|
-          Funes::PersistProjectionJob.perform_now(@idx, projection_class, last_event_creation_date)
+          Funes::PersistProjectionJob.perform_now(@idx, projection_class, last_event_creation_date, last_event_creation_date)
         end
       end
 
       def schedule_async_projections
         async_projections.each do |projection|
-          as_of = resolve_as_of_strategy(projection[:as_of_strategy])
-          Funes::PersistProjectionJob.set(projection[:options]).perform_later(@idx, projection[:class], as_of)
+          at = resolve_temporal_context(projection[:temporal_context])
+          Funes::PersistProjectionJob.set(projection[:options]).perform_later(@idx, projection[:class], nil, at)
         end
       end
 
@@ -354,7 +354,7 @@ module Funes
         (@instance_new_events.last || previous_events.last).created_at
       end
 
-      def resolve_as_of_strategy(strategy)
+      def resolve_temporal_context(strategy)
         last_event = @instance_new_events.last || previous_events.last
 
         case strategy
@@ -370,7 +370,7 @@ module Funes
           end
           result
         else
-          raise ArgumentError, "Invalid as_of strategy: #{strategy.inspect}. " \
+          raise ArgumentError, "Invalid temporal_context strategy: #{strategy.inspect}. " \
                                "Expected :last_event_time, :job_time, or a Proc"
         end
       end

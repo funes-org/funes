@@ -135,5 +135,27 @@ class PersistProjectionJobTest < ActiveSupport::TestCase
       materialization = TestMaterialization.find_by(idx: idx)
       assert_equal 150.0, materialization.outstanding_balance
     end
+
+    it "passes the at parameter to materialize! as temporal context" do
+      idx = "test-at-context"
+      at_time = Time.new(2025, 6, 15, 12, 0, 0)
+
+      Funes::EventEntry.create!(
+        klass: "PersistProjectionJobTest::TestEvent",
+        idx: idx,
+        version: 1,
+        props: { amount: 100.0, note: "first", at: Date.new(2025, 6, 15) },
+        occurred_at: at_time
+      )
+
+      mock = Minitest::Mock.new
+      mock.expect(:call, true, [Array, idx, nil], at: at_time)
+
+      TestProjection.stub(:materialize!, mock) do
+        Funes::PersistProjectionJob.perform_now(idx, TestProjection, nil, at_time)
+      end
+
+      assert_mock mock
+    end
   end
 end

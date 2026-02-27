@@ -33,7 +33,7 @@ class AsyncProjectionsMaterializationTest < ActiveSupport::TestCase
 
       it "enqueues the persistence job (`perform_later`) with no job options" do
         as_of_time = Time.zone.local(2026, 1, 1, 12, 0, 0)
-        perform_later_mock = Minitest::Mock.new.expect(:perform_later, true, [ "my-identifier", AsyncProjection, as_of_time ])
+        perform_later_mock = Minitest::Mock.new.expect(:perform_later, true, [ "my-identifier", AsyncProjection, nil, as_of_time ])
         set_mock = Minitest::Mock.new.expect(:call, perform_later_mock, [ {} ])
 
         travel_to(as_of_time) do
@@ -56,7 +56,7 @@ class AsyncProjectionsMaterializationTest < ActiveSupport::TestCase
 
       it "correctly configures the persistence job options through the `set` method" do
         as_of_time = Time.zone.local(2026, 1, 1, 12, 0, 0)
-        set_mock = Minitest::Mock.new.expect(:call, Minitest::Mock.new.expect(:perform_later, true, [ "my-identifier", AsyncProjection, as_of_time ]),
+        set_mock = Minitest::Mock.new.expect(:call, Minitest::Mock.new.expect(:perform_later, true, [ "my-identifier", AsyncProjection, nil, as_of_time ]),
                                              [ { queue: :default, wait_until: Time.current.tomorrow.midnight } ])
 
         travel_to(as_of_time) do
@@ -71,7 +71,7 @@ class AsyncProjectionsMaterializationTest < ActiveSupport::TestCase
 
       it "enqueues the persistence job sending the correct parameters to `perform_later`" do
         as_of_time = Time.zone.local(2026, 1, 1, 12, 0, 0)
-        perform_later_mock = Minitest::Mock.new.expect(:perform_later, true, [ "my-identifier", AsyncProjection, as_of_time ])
+        perform_later_mock = Minitest::Mock.new.expect(:perform_later, true, [ "my-identifier", AsyncProjection, nil, as_of_time ])
         set_mock = Minitest::Mock.new.expect(:call, perform_later_mock, [ { queue: :default,
                                                                             wait_until: Time.current.tomorrow.midnight } ])
 
@@ -96,9 +96,9 @@ class AsyncProjectionsMaterializationTest < ActiveSupport::TestCase
     it "correctly configures the persistence job options through the `set` method for each projection" do
       as_of_time = Time.zone.local(2026, 1, 1, 12, 0, 0)
       set_mock = Minitest::Mock.new
-      set_mock.expect(:call, Minitest::Mock.new.expect(:perform_later, true, [ "my-identifier", AsyncProjection, as_of_time ]),
+      set_mock.expect(:call, Minitest::Mock.new.expect(:perform_later, true, [ "my-identifier", AsyncProjection, nil, as_of_time ]),
                       [ { queue: :urgent } ])
-      set_mock.expect(:call, Minitest::Mock.new.expect(:perform_later, true, [ "my-identifier", SecondAsyncProjection, as_of_time ]),
+      set_mock.expect(:call, Minitest::Mock.new.expect(:perform_later, true, [ "my-identifier", SecondAsyncProjection, nil, as_of_time ]),
                       [ { queue: :default } ])
 
       travel_to(as_of_time) do
@@ -114,8 +114,8 @@ class AsyncProjectionsMaterializationTest < ActiveSupport::TestCase
     it "enqueues the persistence job (`perform_later`) with the correct options for each projection" do
       as_of_time = Time.zone.local(2026, 1, 1, 12, 0, 0)
       perform_later_mock = Minitest::Mock.new
-      perform_later_mock.expect(:perform_later, true, [ "my-identifier", AsyncProjection, as_of_time ])
-      perform_later_mock.expect(:perform_later, true, [ "my-identifier", SecondAsyncProjection, as_of_time ])
+      perform_later_mock.expect(:perform_later, true, [ "my-identifier", AsyncProjection, nil, as_of_time ])
+      perform_later_mock.expect(:perform_later, true, [ "my-identifier", SecondAsyncProjection, nil, as_of_time ])
       set_stub = Minitest::Mock.new
                                .expect(:call, perform_later_mock, [ { queue: :urgent } ])
                                .expect(:call, perform_later_mock, [ { queue: :default } ])
@@ -131,21 +131,21 @@ class AsyncProjectionsMaterializationTest < ActiveSupport::TestCase
     end
   end
 
-  describe "as_of configuration" do
-    describe "when as_of is not specified (default behavior)" do
-      class EventStreamWithDefaultAsOf < Funes::EventStream
+  describe "at configuration" do
+    describe "when at is not specified (default behavior)" do
+      class EventStreamWithDefaultAt < Funes::EventStream
         add_async_projection AsyncProjection
       end
 
       it "uses last_event_time by default (backward compatibility)" do
         as_of_time = Time.zone.local(2026, 1, 1, 12, 0, 0)
-        perform_later_mock = Minitest::Mock.new.expect(:perform_later, true, [ "test-id", AsyncProjection, as_of_time ])
+        perform_later_mock = Minitest::Mock.new.expect(:perform_later, true, [ "test-id", AsyncProjection, nil, as_of_time ])
         set_mock = Minitest::Mock.new.expect(:call, perform_later_mock, [ {} ])
 
         travel_to(as_of_time) do
           Funes::PersistProjectionJob.stub(:set, set_mock) do
             event = DummyEvent.new(value: 42)
-            EventStreamWithDefaultAsOf.for("test-id", as_of_time).append(event)
+            EventStreamWithDefaultAt.for("test-id", as_of_time).append(event)
           end
         end
 
@@ -154,14 +154,14 @@ class AsyncProjectionsMaterializationTest < ActiveSupport::TestCase
       end
     end
 
-    describe "when as_of is :job_time" do
+    describe "when at is :job_time" do
       class EventStreamWithJobTime < Funes::EventStream
-        add_async_projection AsyncProjection, as_of: :job_time
+        add_async_projection AsyncProjection, temporal_context: :job_time
       end
 
-      it "passes nil to perform_later (job will use Time.current)" do
+      it "passes nil as at to perform_later" do
         as_of_time = Time.zone.local(2026, 1, 1, 12, 0, 0)
-        perform_later_mock = Minitest::Mock.new.expect(:perform_later, true, [ "test-id", AsyncProjection, nil ])
+        perform_later_mock = Minitest::Mock.new.expect(:perform_later, true, [ "test-id", AsyncProjection, nil, nil ])
         set_mock = Minitest::Mock.new.expect(:call, perform_later_mock, [ {} ])
 
         travel_to(as_of_time) do
@@ -176,21 +176,21 @@ class AsyncProjectionsMaterializationTest < ActiveSupport::TestCase
       end
     end
 
-    describe "when as_of is a proc" do
-      class EventStreamWithProcAsOf < Funes::EventStream
-        add_async_projection AsyncProjection, as_of: ->(last_event) { last_event.created_at.beginning_of_day }
+    describe "when at is a proc" do
+      class EventStreamWithProcAt < Funes::EventStream
+        add_async_projection AsyncProjection, temporal_context: ->(last_event) { last_event.created_at.beginning_of_day }
       end
 
       it "calls the proc with last_event and uses the returned value" do
         as_of_time = Time.zone.local(2026, 1, 15, 14, 30, 0)
-        expected_as_of = as_of_time.beginning_of_day
-        perform_later_mock = Minitest::Mock.new.expect(:perform_later, true, [ "test-id", AsyncProjection, expected_as_of ])
+        expected_at = as_of_time.beginning_of_day
+        perform_later_mock = Minitest::Mock.new.expect(:perform_later, true, [ "test-id", AsyncProjection, nil, expected_at ])
         set_mock = Minitest::Mock.new.expect(:call, perform_later_mock, [ {} ])
 
         travel_to(as_of_time) do
           Funes::PersistProjectionJob.stub(:set, set_mock) do
             event = DummyEvent.new(value: 42)
-            EventStreamWithProcAsOf.for("test-id", as_of_time).append(event)
+            EventStreamWithProcAt.for("test-id", as_of_time).append(event)
           end
         end
 
@@ -199,9 +199,9 @@ class AsyncProjectionsMaterializationTest < ActiveSupport::TestCase
       end
     end
 
-    describe "when as_of proc returns invalid value" do
+    describe "when at proc returns invalid value" do
       class EventStreamWithInvalidProc < Funes::EventStream
-        add_async_projection AsyncProjection, as_of: ->(_last_event) { nil }
+        add_async_projection AsyncProjection, temporal_context: ->(_last_event) { nil }
       end
 
       it "raises ArgumentError with helpful message" do
@@ -220,9 +220,9 @@ class AsyncProjectionsMaterializationTest < ActiveSupport::TestCase
       end
     end
 
-    describe "when as_of is an invalid strategy" do
+    describe "when at is an invalid strategy" do
       class EventStreamWithInvalidStrategy < Funes::EventStream
-        add_async_projection AsyncProjection, as_of: :invalid_strategy
+        add_async_projection AsyncProjection, temporal_context: :invalid_strategy
       end
 
       it "raises ArgumentError with clear message" do
@@ -235,25 +235,25 @@ class AsyncProjectionsMaterializationTest < ActiveSupport::TestCase
           end
         end
 
-        assert_match(/Invalid as_of strategy/, error.message)
+        assert_match(/Invalid temporal_context strategy/, error.message)
         assert_match(/Expected :last_event_time, :job_time, or a Proc/, error.message)
       end
     end
 
-    describe "when as_of is combined with ActiveJob options" do
-      class EventStreamWithAsOfAndOptions < Funes::EventStream
-        add_async_projection AsyncProjection, as_of: :job_time, queue: :reports, wait: 5.minutes
+    describe "when at is combined with ActiveJob options" do
+      class EventStreamWithAtAndOptions < Funes::EventStream
+        add_async_projection AsyncProjection, temporal_context: :job_time, queue: :reports, wait: 5.minutes
       end
 
-      it "correctly passes both as_of and ActiveJob options" do
+      it "correctly passes both at and ActiveJob options" do
         as_of_time = Time.zone.local(2026, 1, 1, 12, 0, 0)
-        perform_later_mock = Minitest::Mock.new.expect(:perform_later, true, [ "test-id", AsyncProjection, nil ])
+        perform_later_mock = Minitest::Mock.new.expect(:perform_later, true, [ "test-id", AsyncProjection, nil, nil ])
         set_mock = Minitest::Mock.new.expect(:call, perform_later_mock, [ { queue: :reports, wait: 5.minutes } ])
 
         travel_to(as_of_time) do
           Funes::PersistProjectionJob.stub(:set, set_mock) do
             event = DummyEvent.new(value: 42)
-            EventStreamWithAsOfAndOptions.for("test-id", as_of_time).append(event)
+            EventStreamWithAtAndOptions.for("test-id", as_of_time).append(event)
           end
         end
 
