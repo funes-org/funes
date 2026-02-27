@@ -149,7 +149,7 @@ class PersistProjectionJobTest < ActiveSupport::TestCase
       )
 
       mock = Minitest::Mock.new
-      mock.expect(:call, true, [Array, idx, nil], at: at_time)
+      mock.expect(:call, true, [ Array, idx, nil ], at: at_time)
 
       TestProjection.stub(:materialize!, mock) do
         Funes::PersistProjectionJob.perform_now(idx, TestProjection, nil, at_time)

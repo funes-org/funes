@@ -29,7 +29,7 @@ module Funes
   #
   # All interpretation blocks (`initial_state`, `interpretation_for`, and `final_state`) receive `at`
   # as their temporal parameter, representing when events actually occurred rather than when the system
-  # recorded them. When `at` is `nil` (no actual-time filter), blocks receive `nil` in that position.
+  # recorded them.
   class Projection
     class << self
       # Registers an interpretation block for a given event type.
@@ -44,7 +44,7 @@ module Funes
       #   It should return a new version of the transient state.
       # @yieldparam [ActiveModel::Model, ActiveRecord::Base] transient_state The current transient state
       # @yieldparam [Funes::Event] event Event instance.
-      # @yieldparam [Time, nil] at The actual-time cutoff passed to the projection, or nil if not filtering by actual time.
+      # @yieldparam [Time] at The temporal reference point for the projection.
       # @yieldreturn [ActiveModel::Model, ActiveRecord::Base] the new transient state
       # @return [void]
       #
@@ -68,7 +68,7 @@ module Funes
       #
       # @yield [materialization_model, at] Block invoked to produce the initial state.
       # @yieldparam [Class<ActiveRecord::Base>, Class<ActiveModel::Model>] materialization_model The materialization model constant.
-      # @yieldparam [Time, nil] at The actual-time cutoff passed to the projection, or nil if not filtering by actual time.
+      # @yieldparam [Time] at The temporal reference point for the projection.
       # @yieldreturn [ActiveModel::Model, ActiveRecord::Base] the new transient state
       # @return [void]
       #
@@ -89,7 +89,7 @@ module Funes
       #
       # @yield [transient_state, at] Block invoked to produce the final state.
       # @yieldparam [ActiveModel::Model, ActiveRecord::Base] transient_state The current transient state after all interpretations.
-      # @yieldparam [Time, nil] at The actual-time cutoff passed to the projection, or nil if not filtering by actual time.
+      # @yieldparam [Time] at The temporal reference point for the projection.
       # @yieldreturn [ActiveModel::Model, ActiveRecord::Base] the final transient state instance
       # @return [void]
       #
