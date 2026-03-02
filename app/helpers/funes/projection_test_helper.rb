@@ -47,8 +47,10 @@ module Funes
     #   assert_equal -5, result.quantity_on_hand
     #   refute result.valid?
     def interpret_event_based_on(projection_class, event_instance, previous_state, at = Time.current)
+      at = at.beginning_of_day if at.is_a?(Date) && !at.is_a?(Time)
+      event_at = event_instance.occurred_at || at
       projection_class.instance_variable_get(:@interpretations)[event_instance.class]
-                      .call(previous_state, event_instance, at)
+                      .call(previous_state, event_instance, event_at)
     end
 
     # Test an initial_state block in isolation.

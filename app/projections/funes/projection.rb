@@ -171,7 +171,8 @@ module Funes
           raise Funes::UnknownEvent, "Events of the type #{event.class} are not processable"
         end
 
-        result = fn.nil? ? previous_state : fn.call(previous_state, event, at || as_of)
+        event_at = event.occurred_at || at || as_of
+        result = fn.nil? ? previous_state : fn.call(previous_state, event, event_at)
 
         warn_about_ineffective_errors(event) unless consistency
 

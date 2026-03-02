@@ -254,6 +254,74 @@ class ProjectionTest < ActiveSupport::TestCase
 
       assert_equal as_of_time, state.temporal_arg
     end
+
+    it "uses event.occurred_at for interpretation blocks when event is persisted" do
+      at_time = Time.new(2025, 6, 15, 12, 0, 0)
+      occurred_at_time = Time.new(2025, 3, 1, 9, 0, 0)
+      as_of_time = Time.new(2025, 7, 1, 12, 0, 0)
+
+      projection_with_occurred_at = Class.new(Funes::Projection) do
+        materialization_model temporal_materialization
+
+        interpretation_for Events4CurrentTest::Start do |state, event, temporal|
+          state.assign_attributes(value: event.value, temporal_arg: temporal)
+          state
+        end
+      end
+
+      event = Events4CurrentTest::Start.new(value: 1)
+      event._event_entry = Funes::EventEntry.new(occurred_at: occurred_at_time)
+
+      state = projection_with_occurred_at.process_events(
+        [ event ],
+        as_of_time,
+        at: at_time
+      )
+
+      assert_equal occurred_at_time, state.temporal_arg
+    end
+
+    it "interpretation blocks receive event.occurred_at independently per event" do
+      occurred_at_first = Time.new(2025, 1, 10, 8, 0, 0)
+      occurred_at_second = Time.new(2025, 4, 20, 16, 0, 0)
+      at_time = Time.new(2025, 6, 15, 12, 0, 0)
+      as_of_time = Time.new(2025, 7, 1, 12, 0, 0)
+
+      temporal_log_materialization = Class.new do
+        include ActiveModel::Model
+        include ActiveModel::Attributes
+
+        attribute :temporal_args, default: -> { [] }
+      end
+
+      projection_multi = Class.new(Funes::Projection) do
+        materialization_model temporal_log_materialization
+
+        interpretation_for Events4CurrentTest::Start do |state, event, temporal|
+          state.temporal_args << temporal
+          state
+        end
+
+        interpretation_for Events4CurrentTest::Add do |state, event, temporal|
+          state.temporal_args << temporal
+          state
+        end
+      end
+
+      event_one = Events4CurrentTest::Start.new(value: 1)
+      event_one._event_entry = Funes::EventEntry.new(occurred_at: occurred_at_first)
+
+      event_two = Events4CurrentTest::Add.new(value: 2)
+      event_two._event_entry = Funes::EventEntry.new(occurred_at: occurred_at_second)
+
+      state = projection_multi.process_events(
+        [ event_one, event_two ],
+        as_of_time,
+        at: at_time
+      )
+
+      assert_equal [ occurred_at_first, occurred_at_second ], state.temporal_args
+    end
   end
 
   describe "persistence management" do

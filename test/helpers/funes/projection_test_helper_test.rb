@@ -113,6 +113,29 @@ class Funes::ProjectionTestHelperTest < ActiveSupport::TestCase
         assert_equal Time.current, interpret_event_based_on(TestProjection, event, initial_state).recorded_at
       end
     end
+
+    it "coerces Date at to beginning_of_day" do
+      date = Date.new(2024, 6, 1)
+      initial_state = TestState.new
+      event = TestEvent.new(amount: 10, note: "x")
+
+      result = interpret_event_based_on(TestProjection, event, initial_state, date)
+
+      assert_equal date.beginning_of_day, result.recorded_at
+    end
+
+    it "uses event.occurred_at when present, ignoring at parameter" do
+      occurred_at_time = Time.new(2024, 11, 5, 14, 0, 0)
+      at_time = Time.new(2025, 3, 20, 9, 0, 0)
+
+      initial_state = TestState.new
+      event = TestEvent.new(amount: 100, note: "test")
+      event._event_entry = Funes::EventEntry.new(occurred_at: occurred_at_time)
+
+      result = interpret_event_based_on(TestProjection, event, initial_state, at_time)
+
+      assert_equal occurred_at_time, result.recorded_at
+    end
   end
 
   describe "#apply_final_state_based_on" do
