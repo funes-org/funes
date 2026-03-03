@@ -198,8 +198,30 @@ class BitemporalTest < ActiveSupport::TestCase
       # Query: "What did the system think Sally's salary was on Feb 20,
       #          given only what it knew as of Mar 1?"
       # The raise (recorded Mar 15) is NOT included — as_of=Mar 1 excludes it.
-      stream = stream_without_actual_time.for(idx, Time.new(2025, 3, 1))
-      result = stream.projected_with(salary_projection, at: Time.new(2025, 2, 20))
+      stream = stream_without_actual_time.for(idx)
+      result = stream.projected_with(salary_projection, as_of: Time.new(2025, 3, 1), at: Time.new(2025, 2, 20))
+
+      assert_equal 6000, result.salary
+    end
+
+    it "filters by both record time and actual time using projected_with as_of:" do
+      idx = "salary-bitemporal-as-of-param-#{SecureRandom.uuid}"
+
+      # Jan 1: record salary at $6,000 (occurred Jan 1)
+      travel_to Time.new(2025, 1, 1, 12, 0, 0) do
+        stream_without_actual_time.for(idx).append(SalarySet.new(amount: 6000), at: Time.new(2025, 1, 1))
+      end
+
+      # Mar 15: record retroactive raise to $6,500 that happened Feb 15
+      travel_to Time.new(2025, 3, 15, 12, 0, 0) do
+        stream_without_actual_time.for(idx).append(SalaryRaised.new(amount: 6500), at: Time.new(2025, 2, 15))
+      end
+
+      # Same query as above, but expressed entirely in projected_with
+      stream = stream_without_actual_time.for(idx)
+      result = stream.projected_with(salary_projection,
+                                     as_of: Time.new(2025, 3, 1),
+                                     at: Time.new(2025, 2, 20))
 
       assert_equal 6000, result.salary
     end

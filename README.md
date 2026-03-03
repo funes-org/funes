@@ -202,11 +202,12 @@ Funes supports two independent temporal dimensions, enabling full **bitemporal h
 
 ### Record history (`as_of`)
 
-Every event is timestamped with `created_at` when it is persisted. Query your stream at any point in record time:
+Every event is timestamped with `created_at` when it is persisted. Query your stream at any point in record time by passing `as_of:` to `projected_with`:
 
 ```ruby
-InventoryEventStream.for("sku-12345") # => current state (all known events)
-InventoryEventStream.for("sku-12345", 1.month.ago) # => state as the system knew it 1 month ago
+stream = InventoryEventStream.for("sku-12345")
+stream.projected_with(InventoryProjection)             # current state (all known events)
+stream.projected_with(InventoryProjection, as_of: 1.month.ago) # state as the system knew it 1 month ago
 ```
 
 ### Actual history (`at`)
@@ -246,8 +247,8 @@ Combine both dimensions to ask: "What did the system think had actually happened
 
 ```ruby
 # What did the system think Sally's salary was on Feb 20, given only what it knew as of Mar 1?
-stream = SalaryEventStream.for("sally-123", Time.new(2025, 3, 1))
-stream.projected_with(SalaryProjection, at: Time.new(2025, 2, 20))
+stream = SalaryEventStream.for("sally-123")
+stream.projected_with(SalaryProjection, as_of: Time.new(2025, 3, 1), at: Time.new(2025, 2, 20))
 ```
 
 ### Temporal reference in projections

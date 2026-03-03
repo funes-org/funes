@@ -14,12 +14,12 @@ module Funes
   # EventStreams support two independent temporal dimensions:
   #
   # - **Record history** (`as_of`): Filters by `created_at` — "what did the system know at time T?"
-  #   Set via `EventStream.for(idx, as_of_time)`.
+  #   Set via `projected_with(projection, as_of: time)`.
   # - **Actual history** (`at`): Filters by `occurred_at` — "what had actually happened by time T?"
   #   Set via `projected_with(projection, at: time)`.
   #
-  # When both are used together, `as_of` determines which events are loaded (DB-level filter on
-  # `created_at`), and `at` further narrows which loaded events are projected (Ruby-level filter
+  # When both are used together, `as_of` determines which events are visible (filtered in Ruby by
+  # `created_at`), and `at` further narrows which of those events are projected (Ruby-level filter
   # on `occurred_at`).
   #
   # ## Actual Time Attribute
@@ -60,17 +60,13 @@ module Funes
   # @example Append a retroactive event with explicit actual time
   #   stream.append(Salary::Raised.new(amount: 6500), at: Time.new(2025, 2, 15))
   #
-  # @example Record history query - what the system knew at a point in time
-  #   stream = OrderEventStream.for("order-123", 1.month.ago)
-  #   stream.events # => only events recorded up to 1 month ago
-  #
   # @example Actual history query - what had actually happened by a point in time
   #   stream = SalaryEventStream.for("sally-123")
   #   stream.projected_with(SalaryProjection, at: Time.new(2025, 2, 20))
   #
   # @example Full bitemporal query - combining both dimensions
-  #   stream = SalaryEventStream.for("sally-123", Time.new(2025, 3, 1))
-  #   stream.projected_with(SalaryProjection, at: Time.new(2025, 2, 20))
+  #   stream = SalaryEventStream.for("sally-123")
+  #   stream.projected_with(SalaryProjection, as_of: Time.new(2025, 3, 1), at: Time.new(2025, 2, 20))
   class EventStream
     class << self
       # Register a consistency projection that validates business rules before persisting events.
@@ -174,17 +170,12 @@ module Funes
       # Create a new EventStream instance for the given entity identifier.
       #
       # @param [String] idx The entity identifier.
-      # @param [Time, nil] as_of Optional timestamp for temporal queries. If provided, only events
-      #   created before or at this timestamp will be included. Defaults to Time.current.
       # @return [Funes::EventStream] A new EventStream instance.
       #
-      # @example Current state
+      # @example
       #   stream = OrderEventStream.for("order-123")
-      #
-      # @example State as of a specific time
-      #   stream = OrderEventStream.for("order-123", 1.month.ago)
-      def for(idx, as_of = nil)
-        new(idx, as_of)
+      def for(idx)
+        new(idx)
       end
     end
 
@@ -265,10 +256,10 @@ module Funes
     end
 
     # @!visibility private
-    def initialize(entity_id, as_of = nil)
+    def initialize(entity_id)
       @idx = entity_id
       @instance_new_events = []
-      @as_of = as_of ? as_of : Time.current
+      @as_of = Time.current
     end
 
     # Get all events in the stream as event instances.
@@ -291,10 +282,13 @@ module Funes
     #
     # Delegates to the projection's `process_events` class method, passing the stream's
     # events and `as_of` timestamp. When `at:` is provided, events are filtered to only
-    # include those where `occurred_at <= at` before projection.
+    # include those where `occurred_at <= at` before projection. When `as_of:` is provided,
+    # it overrides the stream's record-time boundary, filtering events in Ruby by `created_at`.
     #
     # @param projection_class [Class<Funes::Projection>] The projection class to use.
-    # @param [Time, nil] at Optional temporal reference. When provided, only events with
+    # @param [Time, nil] as_of Optional record-time override. When provided, only events with
+    #   `created_at <= as_of` are considered, overriding the stream's own `@as_of`.
+    # @param [Time, nil] at Optional actual-time reference. When provided, only events with
     #   `occurred_at <= at` are included in the projection.
     # @return [Object] The materialized state as defined by the projection's materialization model.
     #
@@ -307,9 +301,17 @@ module Funes
     #   stream = SalaryEventStream.for("sally-123")
     #   snapshot = stream.projected_with(SalaryProjection, at: Time.new(2025, 2, 20))
     #   snapshot.salary # => only reflects events that actually occurred by Feb 20
-    def projected_with(projection_class, at: nil)
-      target_events = at ? filter_by_actual_time(events, at) : events
-      projection_class.process_events(target_events, @as_of, at: at)
+    #
+    # @example Full bitemporal query combining both dimensions in a single call
+    #   stream = SalaryEventStream.for("sally-123")
+    #   snapshot = stream.projected_with(SalaryProjection,
+    #                                    as_of: Time.new(2025, 3, 1),
+    #                                    at: Time.new(2025, 2, 20))
+    def projected_with(projection_class, as_of: nil, at: nil)
+      effective_as_of = as_of || @as_of
+      source_events   = as_of ? filter_by_record_time(events, as_of) : events
+      target_events   = at ? filter_by_actual_time(source_events, at) : source_events
+      projection_class.process_events(target_events, effective_as_of, at: at)
     end
 
     # Returns the parameter representation of the event stream for use in URLs.
@@ -406,6 +408,10 @@ module Funes
         end
 
         value
+      end
+
+      def filter_by_record_time(events_list, as_of)
+        events_list.select { |event| event.created_at <= as_of }
       end
 
       def filter_by_actual_time(events_list, at)
