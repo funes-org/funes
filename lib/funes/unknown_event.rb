@@ -16,7 +16,7 @@ module Funes
   #
   # @example Handling unknown events
   #   begin
-  #     projection.process_events(events, Time.current)
+  #     projection.process_events(events)
   #   rescue Funes::UnknownEvent => e
   #     Rails.logger.error "Missing interpretation: #{e.message}"
   #   end

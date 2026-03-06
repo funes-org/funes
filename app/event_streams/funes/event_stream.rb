@@ -231,7 +231,7 @@ module Funes
       resolved_at = resolve_occurred_at(new_event, at)
 
       if consistency_projection.present?
-        materialization = compute_projection_with_new_event(consistency_projection, new_event)
+        materialization = compute_projection_with_new_event(consistency_projection, new_event, resolved_at)
         transfer_interpretation_errors(new_event)
         return new_event if materialization.invalid? || new_event.invalid?
       end
@@ -308,10 +308,9 @@ module Funes
     #                                    as_of: Time.new(2025, 3, 1),
     #                                    at: Time.new(2025, 2, 20))
     def projected_with(projection_class, as_of: nil, at: nil)
-      effective_as_of = as_of || @as_of
-      source_events   = as_of ? filter_by_record_time(events, as_of) : events
-      target_events   = at ? filter_by_actual_time(source_events, at) : source_events
-      projection_class.process_events(target_events, effective_as_of, at: at)
+      source_events = as_of ? filter_by_record_time(events, as_of) : events
+      target_events = at ? filter_by_actual_time(source_events, at) : source_events
+      projection_class.process_events(target_events, at: at)
     end
 
     # Returns the parameter representation of the event stream for use in URLs.
@@ -436,8 +435,8 @@ module Funes
         errors.clear
       end
 
-      def compute_projection_with_new_event(projection_class, new_event)
-        materialization = projection_class.process_events(events + [ new_event ], @as_of, consistency: true)
+      def compute_projection_with_new_event(projection_class, new_event, at)
+        materialization = projection_class.process_events(events + [ new_event ], at: at, consistency: true)
         unless materialization.valid?
           new_event._adjacent_state_errors = materialization.errors
         end
