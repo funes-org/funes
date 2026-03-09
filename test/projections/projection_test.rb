@@ -119,10 +119,7 @@ class ProjectionTest < ActiveSupport::TestCase
         end
       end
 
-      state = projection_with_at.process_events(
-        [ Events4CurrentTest::Start.new(value: 1) ],
-        at: at_time
-      )
+      state = projection_with_at.process_events([ Events4CurrentTest::Start.new(value: 1) ], at: at_time)
 
       assert_equal at_time, state.temporal_arg
     end
@@ -137,9 +134,7 @@ class ProjectionTest < ActiveSupport::TestCase
         end
       end
 
-      state = projection_no_at.process_events(
-        [ Events4CurrentTest::Start.new(value: 1) ]
-      )
+      state = projection_no_at.process_events([ Events4CurrentTest::Start.new(value: 1) ])
 
       assert_nil state.temporal_arg
     end
@@ -161,10 +156,7 @@ class ProjectionTest < ActiveSupport::TestCase
         end
       end
 
-      state = projection_with_final.process_events(
-        [ Events4CurrentTest::Start.new(value: 1) ],
-        at: at_time
-      )
+      state = projection_with_final.process_events([ Events4CurrentTest::Start.new(value: 1) ], at: at_time)
 
       assert_equal at_time, state.temporal_arg
     end
@@ -184,9 +176,7 @@ class ProjectionTest < ActiveSupport::TestCase
         end
       end
 
-      state = projection_with_final.process_events(
-        [ Events4CurrentTest::Start.new(value: 1) ]
-      )
+      state = projection_with_final.process_events([ Events4CurrentTest::Start.new(value: 1) ])
 
       assert_nil state.temporal_arg
     end
@@ -207,10 +197,7 @@ class ProjectionTest < ActiveSupport::TestCase
         end
       end
 
-      state = projection_with_init.process_events(
-        [ Events4CurrentTest::Start.new(value: 1) ],
-        at: at_time
-      )
+      state = projection_with_init.process_events([ Events4CurrentTest::Start.new(value: 1) ], at: at_time)
 
       assert_equal at_time, state.temporal_arg
     end
@@ -229,9 +216,7 @@ class ProjectionTest < ActiveSupport::TestCase
         end
       end
 
-      state = projection_with_init.process_events(
-        [ Events4CurrentTest::Start.new(value: 1) ]
-      )
+      state = projection_with_init.process_events([ Events4CurrentTest::Start.new(value: 1) ])
 
       assert_nil state.temporal_arg
     end
@@ -252,10 +237,7 @@ class ProjectionTest < ActiveSupport::TestCase
       event = Events4CurrentTest::Start.new(value: 1)
       event._event_entry = Funes::EventEntry.new(occurred_at: occurred_at_time)
 
-      state = projection_with_occurred_at.process_events(
-        [ event ],
-        at: at_time
-      )
+      state = projection_with_occurred_at.process_events([ event ], at: at_time)
 
       assert_equal occurred_at_time, state.temporal_arg
     end
@@ -292,10 +274,7 @@ class ProjectionTest < ActiveSupport::TestCase
       event_two = Events4CurrentTest::Add.new(value: 2)
       event_two._event_entry = Funes::EventEntry.new(occurred_at: occurred_at_second)
 
-      state = projection_multi.process_events(
-        [ event_one, event_two ],
-        at: at_time
-      )
+      state = projection_multi.process_events([ event_one, event_two ], at: at_time)
 
       assert_equal [ occurred_at_first, occurred_at_second ], state.temporal_args
     end

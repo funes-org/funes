@@ -228,7 +228,7 @@ module Funes
     def append(new_event, at: nil)
       return new_event unless new_event.valid?
 
-      occurred_at = resolve_occurred_at(new_event, at)
+      occurred_at = resolve_proper_occurred_at(new_event, at)
 
       if consistency_projection.present?
         materialization = compute_projection_with_new_event(consistency_projection, new_event, occurred_at)
@@ -334,14 +334,17 @@ module Funes
     private
       def run_transactional_projections
         transactional_projections.each do |projection_class|
-          Funes::PersistProjectionJob.perform_now(@idx, projection_class, last_event_creation_date, last_event_occurrence_date)
+          Funes::PersistProjectionJob.perform_now(@idx, projection_class, last_event_creation_date,
+                                                  last_event_occurrence_date)
         end
       end
 
       def schedule_async_projections
         async_projections.each do |projection|
-          at = resolve_temporal_context(projection[:temporal_context])
-          Funes::PersistProjectionJob.set(projection[:options]).perform_later(@idx, projection[:class], nil, at)
+          Funes::PersistProjectionJob
+            .set(projection[:options])
+            .perform_later(@idx, projection[:class], nil,
+                           resolve_temporal_context(projection[:temporal_context]))
         end
       end
 
@@ -351,12 +354,16 @@ module Funes
                                .order(:occurred_at)
       end
 
+      def last_event
+        (@instance_new_events.last || previous_events.last)
+      end
+
       def last_event_creation_date
-        (@instance_new_events.last || previous_events.last).created_at
+        last_event.created_at
       end
 
       def last_event_occurrence_date
-        (@instance_new_events.last || previous_events.last).occurred_at
+        last_event.occurred_at
       end
 
       def resolve_temporal_context(strategy)
@@ -380,16 +387,17 @@ module Funes
         end
       end
 
-      def resolve_occurred_at(event, at)
-        explicit_at = normalize_at(at)
-        attribute_at = actual_time_from_attribute(event)
+      def resolve_proper_occurred_at(event, at)
+        at_from_param = normalize_at(at)
+        at_from_configured_event_attr = actual_time_from_attribute(event)
 
-        if explicit_at && attribute_at && explicit_at != attribute_at
+        if at_from_param && at_from_configured_event_attr && at_from_param != at_from_configured_event_attr
           raise Funes::ConflictingActualTimeError,
-                "at: #{explicit_at} conflicts with event.#{self.class.actual_time_attribute}: #{attribute_at}"
+                "at: #{at_from_param} conflicts with event.#{self.class.actual_time_attribute}: " \
+                "#{at_from_configured_event_attr}"
         end
 
-        explicit_at || attribute_at
+        at_from_param || at_from_configured_event_attr
       end
 
       def normalize_at(at)

@@ -22,12 +22,10 @@ class Funes::ProjectionTestHelperTest < ActiveSupport::TestCase
 
   class TestProjection < Funes::Projection
     interpretation_for TestEvent do |state, event, at|
-      state.assign_attributes(
-        total: state.total + event.amount,
-        count: state.count + 1,
-        last_note: event.note,
-        recorded_at: at
-      )
+      state.assign_attributes(total: state.total + event.amount,
+                              count: state.count + 1,
+                              last_note: event.note,
+                              recorded_at: at)
       state
     end
   end
