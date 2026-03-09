@@ -112,8 +112,12 @@ module Funes
       # Async projections are scheduled via ActiveJob after the event transaction commits. You can
       # pass any ActiveJob options (queue, wait, wait_until, priority, etc.) to control job scheduling.
       #
-      # The `temporal_context` parameter controls the temporal reference passed to the projection job:
-      # - `:last_event_time` (default) - Uses the creation time of the last event
+      # The `temporal_context` parameter controls the temporal reference passed to the projection job.
+      # Its resolved value becomes the `at:` argument received by interpretation blocks. Note that
+      # this is independent from the `at:` argument of `EventStream#append` — that value sets the
+      # event's `occurred_at` (business time) and does not flow through to async projections.
+      # - `:last_event_time` (default) - Uses the transaction time (`created_at`) of the last event,
+      #   i.e. when it was recorded in the database, not when the business event occurred (`occurred_at`)
       # - `:job_time` - Uses Time.current when the job executes
       # - Proc/Lambda - Custom logic that receives the last event and returns a Time object
       #

@@ -186,8 +186,8 @@ Funes gives you fine-grained control over when and how projections run:
 
 * **Background processing:** these are offloaded to `ActiveJob`, ensuring that heavy computations don't slow down the write path.
 * **Native integration:** fully compliant with standard Rails job backends (`Sidekiq`, `Solid Queue`, etc.). You can pass standard `ActiveJob` options like `queue`, `wait`, or `wait_until`.
-* **Temporal control (`temporal_context`):** customize the temporal reference passed to the projection. The resolved value is the `at` parameter received by interpretation blocks.
-  * `:last_event_time` (Default): uses the creation time of the last event.
+* **Temporal control (`temporal_context`):** customize the temporal reference passed to the projection. The resolved value becomes the `at` parameter received by interpretation blocks. Note that this is independent from the `at:` argument of `EventStream#append` — that value sets the event's `occurred_at` (business time) and does not flow through to async projections.
+  * `:last_event_time` (Default): uses the **transaction time** (`created_at`) of the last event — i.e., when it was recorded in the database, not when the business event occurred (`occurred_at`).
   * `:job_time`: uses the current time when the job executes.
   * `Proc/Lambda`: allows for custom temporal logic (e.g., rounding to the `beginning_of_day`).
 
