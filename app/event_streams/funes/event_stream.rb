@@ -228,17 +228,17 @@ module Funes
     def append(new_event, at: nil)
       return new_event unless new_event.valid?
 
-      resolved_at = resolve_occurred_at(new_event, at)
+      occurred_at = resolve_occurred_at(new_event, at)
 
       if consistency_projection.present?
-        materialization = compute_projection_with_new_event(consistency_projection, new_event, resolved_at)
+        materialization = compute_projection_with_new_event(consistency_projection, new_event, occurred_at)
         transfer_interpretation_errors(new_event)
         return new_event if materialization.invalid? || new_event.invalid?
       end
 
       ActiveRecord::Base.transaction do
         begin
-          @instance_new_events << new_event.persist!(@idx, incremented_version, at: resolved_at)
+          @instance_new_events << new_event.persist!(@idx, incremented_version, at: occurred_at)
           run_transactional_projections
         rescue ActiveRecord::RecordNotUnique
           new_event._event_entry = nil
@@ -334,7 +334,7 @@ module Funes
     private
       def run_transactional_projections
         transactional_projections.each do |projection_class|
-          Funes::PersistProjectionJob.perform_now(@idx, projection_class, last_event_creation_date, last_event_creation_date)
+          Funes::PersistProjectionJob.perform_now(@idx, projection_class, last_event_creation_date, last_event_occurrence_date)
         end
       end
 
@@ -353,6 +353,10 @@ module Funes
 
       def last_event_creation_date
         (@instance_new_events.last || previous_events.last).created_at
+      end
+
+      def last_event_occurrence_date
+        (@instance_new_events.last || previous_events.last).occurred_at
       end
 
       def resolve_temporal_context(strategy)
@@ -377,17 +381,20 @@ module Funes
       end
 
       def resolve_occurred_at(event, at)
+        explicit_at = normalize_at(at)
         attribute_at = actual_time_from_attribute(event)
 
-        at = at.beginning_of_day if at.is_a?(Date) && !at.is_a?(Time)
-        attribute_at = attribute_at.beginning_of_day if attribute_at.is_a?(Date) && !attribute_at.is_a?(Time)
-
-        if at && attribute_at && at != attribute_at
+        if explicit_at && attribute_at && explicit_at != attribute_at
           raise Funes::ConflictingActualTimeError,
-                "at: #{at} conflicts with event.#{self.class.actual_time_attribute}: #{attribute_at}"
+                "at: #{explicit_at} conflicts with event.#{self.class.actual_time_attribute}: #{attribute_at}"
         end
 
-        at || attribute_at
+        explicit_at || attribute_at
+      end
+
+      def normalize_at(at)
+        return nil unless at
+        at.is_a?(Date) && !at.is_a?(Time) ? at.beginning_of_day : at
       end
 
       def actual_time_from_attribute(event)
@@ -406,7 +413,7 @@ module Funes
                 "#{event.class}##{attr_name} is nil but is configured as actual_time_attribute on #{self.class}"
         end
 
-        value
+        value.is_a?(Date) && !value.is_a?(Time) ? value.beginning_of_day : value
       end
 
       def filter_by_record_time(events_list, as_of)
