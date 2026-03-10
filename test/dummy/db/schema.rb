@@ -10,16 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_09_27_111752) do
-  create_table "debt_collections", id: false, force: :cascade do |t|
-    t.string "idx", null: false
-    t.decimal "outstanding_balance", precision: 15, scale: 2, null: false
-    t.date "issuance_date", null: false
-    t.date "last_payment_date"
-    t.integer "status", null: false
-    t.index ["idx"], name: "index_debt_collections_on_idx", unique: true
-  end
-
+ActiveRecord::Schema[7.1].define(version: 2025_09_19_013253) do
   create_table "event_entries", id: false, force: :cascade do |t|
     t.string "klass", null: false
     t.string "idx", null: false

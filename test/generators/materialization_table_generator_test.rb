@@ -9,13 +9,13 @@ class MaterializationTableGeneratorTest < Rails::Generators::TestCase
   setup :prepare_destination
 
   test "creates migration with idx primary key" do
-    run_generator [ "DebtCollection" ]
+    run_generator [ "DepositSummary" ]
 
-    assert_migration "db/migrate/create_debt_collections.rb" do |migration|
-      assert_match(/class CreateDebtCollections/, migration)
-      assert_match(/create_table :debt_collections, id: false, primary_key: :idx/, migration)
+    assert_migration "db/migrate/create_deposit_summaries.rb" do |migration|
+      assert_match(/class CreateDepositSummaries/, migration)
+      assert_match(/create_table :deposit_summaries, id: false, primary_key: :idx/, migration)
       assert_match(/t\.string :idx, null: false/, migration)
-      assert_match(/add_index :debt_collections, :idx, unique: true/, migration)
+      assert_match(/add_index :deposit_summaries, :idx, unique: true/, migration)
     end
   end
 
