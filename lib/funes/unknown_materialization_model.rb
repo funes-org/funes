@@ -8,20 +8,20 @@ module Funes
   #
   # @example Projection without materialization model (raises error)
   #   class IncompleteProjection < Funes::Projection
-  #     interpretation_for OrderPlaced do |state, event, as_of|
+  #     interpretation_for OrderPlaced do |state, event, _at|
   #       # ...
   #     end
   #     # Missing: materialization_model SomeModel
   #   end
   #
   #   # This will raise Funes::UnknownMaterializationModel
-  #   IncompleteProjection.materialize!(events, "entity-123", Time.current)
+  #   IncompleteProjection.materialize!(events, "entity-123")
   #
   # @example Properly configured projection
   #   class OrderProjection < Funes::Projection
   #     materialization_model OrderSnapshot
   #
-  #     interpretation_for OrderPlaced do |state, event, as_of|
+  #     interpretation_for OrderPlaced do |state, event, _at|
   #       # ...
   #     end
   #   end

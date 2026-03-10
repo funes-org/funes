@@ -26,11 +26,9 @@ class PersistProjectionJobTest < ActiveSupport::TestCase
       current_total = state.outstanding_balance || 0
       new_balance = current_total + event.amount
 
-      state.assign_attributes(
-        outstanding_balance: new_balance,
-        issuance_date: state.issuance_date || event.at || Date.today,
-        status: new_balance.zero? ? :paid : :unpaid
-      )
+      state.assign_attributes(outstanding_balance: new_balance,
+                              issuance_date: state.issuance_date || event.at || Date.today,
+                              status: new_balance.zero? ? :paid : :unpaid)
       state
     end
   end
@@ -39,12 +37,11 @@ class PersistProjectionJobTest < ActiveSupport::TestCase
     it "materializes and persists a projection from event stream events" do
       idx = "test-123"
 
-      Funes::EventEntry.create!(
-        klass: "PersistProjectionJobTest::TestEvent",
-        idx: idx,
-        version: 1,
-        props: { amount: 100.0, note: "first", at: Date.today }
-      )
+      Funes::EventEntry.create!(klass: "PersistProjectionJobTest::TestEvent",
+                                idx: idx,
+                                version: 1,
+                                props: { amount: 100.0, note: "first", at: Date.today },
+                                occurred_at: Time.current)
 
       assert_nil TestMaterialization.find_by(idx: idx)
 
@@ -59,18 +56,17 @@ class PersistProjectionJobTest < ActiveSupport::TestCase
     it "processes multiple events and updates the projection state" do
       idx = "test-456"
 
-      Funes::EventEntry.create!(
-        klass: "PersistProjectionJobTest::TestEvent",
-        idx: idx,
-        version: 1,
-        props: { amount: 100.0, note: "first", at: Date.today }
-      )
-      Funes::EventEntry.create!(
-        klass: "PersistProjectionJobTest::TestEvent",
-        idx: idx,
-        version: 2,
-        props: { amount: 50.0, note: "second", at: Date.today }
-      )
+      Funes::EventEntry.create!(klass: "PersistProjectionJobTest::TestEvent",
+                                idx: idx,
+                                version: 1,
+                                props: { amount: 100.0, note: "first", at: Date.today },
+                                occurred_at: Time.current)
+
+      Funes::EventEntry.create!(klass: "PersistProjectionJobTest::TestEvent",
+                                idx: idx,
+                                version: 2,
+                                props: { amount: 50.0, note: "second", at: Date.today },
+                                occurred_at: Time.current)
 
       Funes::PersistProjectionJob.perform_now(idx, TestProjection, Time.current)
 
@@ -81,20 +77,19 @@ class PersistProjectionJobTest < ActiveSupport::TestCase
     it "respects as_of parameter to filter events by time" do
       idx = "test-temporal"
 
-      Funes::EventEntry.create!(
-        klass: "PersistProjectionJobTest::TestEvent",
-        idx: idx,
-        version: 1,
-        props: { amount: 100.0, note: "first", at: Date.new(2025, 1, 1) },
-        created_at: Time.new(2025, 1, 1, 12, 0, 0)
-      )
-      Funes::EventEntry.create!(
-        klass: "PersistProjectionJobTest::TestEvent",
-        idx: idx,
-        version: 2,
-        props: { amount: 50.0, note: "second", at: Date.new(2025, 2, 1) },
-        created_at: Time.new(2025, 2, 1, 12, 0, 0)
-      )
+      Funes::EventEntry.create!(klass: "PersistProjectionJobTest::TestEvent",
+                                idx: idx,
+                                version: 1,
+                                props: { amount: 100.0, note: "first", at: Date.new(2025, 1, 1) },
+                                created_at: Time.new(2025, 1, 1, 12, 0, 0),
+                                occurred_at: Time.new(2025, 1, 1, 12, 0, 0))
+
+      Funes::EventEntry.create!(klass: "PersistProjectionJobTest::TestEvent",
+                                idx: idx,
+                                version: 2,
+                                props: { amount: 50.0, note: "second", at: Date.new(2025, 2, 1) },
+                                created_at: Time.new(2025, 2, 1, 12, 0, 0),
+                                occurred_at: Time.new(2025, 2, 1, 12, 0, 0))
 
       as_of = Time.new(2025, 1, 15, 12, 0, 0)
       Funes::PersistProjectionJob.perform_now(idx, TestProjection, as_of)
@@ -106,27 +101,45 @@ class PersistProjectionJobTest < ActiveSupport::TestCase
     it "updates existing projection when called multiple times" do
       idx = "test-update"
 
-      Funes::EventEntry.create!(
-        klass: "PersistProjectionJobTest::TestEvent",
-        idx: idx,
-        version: 1,
-        props: { amount: 100.0, note: "first", at: Date.today }
-      )
+      Funes::EventEntry.create!(klass: "PersistProjectionJobTest::TestEvent",
+                                idx: idx,
+                                version: 1,
+                                props: { amount: 100.0, note: "first", at: Date.today },
+                                occurred_at: Time.current)
 
       Funes::PersistProjectionJob.perform_now(idx, TestProjection, Time.current)
       assert_equal 100.0, TestMaterialization.find_by(idx: idx).outstanding_balance
 
-      Funes::EventEntry.create!(
-        klass: "PersistProjectionJobTest::TestEvent",
-        idx: idx,
-        version: 2,
-        props: { amount: 50.0, note: "second", at: Date.today }
-      )
+      Funes::EventEntry.create!(klass: "PersistProjectionJobTest::TestEvent",
+                                idx: idx,
+                                version: 2,
+                                props: { amount: 50.0, note: "second", at: Date.today },
+                                occurred_at: Time.current)
 
       Funes::PersistProjectionJob.perform_now(idx, TestProjection, Time.current)
 
       materialization = TestMaterialization.find_by(idx: idx)
       assert_equal 150.0, materialization.outstanding_balance
+    end
+
+    it "passes the at parameter to materialize! as temporal context" do
+      idx = "test-at-context"
+      at_time = Time.new(2025, 6, 15, 12, 0, 0)
+
+      Funes::EventEntry.create!(klass: "PersistProjectionJobTest::TestEvent",
+                                idx: idx,
+                                version: 1,
+                                props: { amount: 100.0, note: "first", at: Date.new(2025, 6, 15) },
+                                occurred_at: at_time)
+
+      mock = Minitest::Mock.new
+      mock.expect(:call, true, [ Array, idx ], at: at_time)
+
+      TestProjection.stub(:materialize!, mock) do
+        Funes::PersistProjectionJob.perform_now(idx, TestProjection, nil, at_time)
+      end
+
+      assert_mock mock
     end
   end
 end

@@ -9,14 +9,14 @@ module Funes
   #   class StrictProjection < Funes::Projection
   #     raise_on_unknown_events
   #
-  #     interpretation_for OrderPlaced do |state, event, as_of|
+  #     interpretation_for OrderPlaced do |state, event, _at|
   #       # ...
   #     end
   #   end
   #
   # @example Handling unknown events
   #   begin
-  #     projection.process_events(events, Time.current)
+  #     projection.process_events(events)
   #   rescue Funes::UnknownEvent => e
   #     Rails.logger.error "Missing interpretation: #{e.message}"
   #   end

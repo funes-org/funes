@@ -16,11 +16,9 @@ module Funes
       end
 
       def create_migration_file
-        migration_template(
-          "materialization_table.rb.tt",
-          "db/migrate/create_#{table_name}.rb",
-          migration_version: migration_version
-        )
+        migration_template("materialization_table.rb.tt",
+                           "db/migrate/create_#{table_name}.rb",
+                           migration_version: migration_version)
       end
 
       private

@@ -34,7 +34,7 @@ class TransactionalProjectionsMaterializationTest < ActiveSupport::TestCase
       event_stream_instance = EventStreamWithSingleTransactionalProjection.for("my-identifier")
       event_creation_time = Time.zone.local(2026, 1, 1, 12, 0, 0)
       mock = Minitest::Mock.new
-      mock.expect(:call, true, [ "my-identifier", TransactionalProjection, event_creation_time ])
+      mock.expect(:call, true, [ "my-identifier", TransactionalProjection, event_creation_time, event_creation_time ])
 
       travel_to(event_creation_time) do
         Funes::PersistProjectionJob.stub(:perform_now, mock) do
@@ -57,8 +57,8 @@ class TransactionalProjectionsMaterializationTest < ActiveSupport::TestCase
       event_stream_instance = EventStreamWithMultipleTransactionalProjection.for("my-identifier")
       event_creation_time = Time.zone.local(2026, 1, 1, 12, 0, 0)
       mock = Minitest::Mock.new
-      mock.expect(:call, true, [ "my-identifier", TransactionalProjection, event_creation_time ])
-      mock.expect(:call, true, [ "my-identifier", SecondTransactionalProjection, event_creation_time ])
+      mock.expect(:call, true, [ "my-identifier", TransactionalProjection, event_creation_time, event_creation_time ])
+      mock.expect(:call, true, [ "my-identifier", SecondTransactionalProjection, event_creation_time, event_creation_time ])
 
       travel_to(event_creation_time) do
         Funes::PersistProjectionJob.stub(:perform_now, mock) do

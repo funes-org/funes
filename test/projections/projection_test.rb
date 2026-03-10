@@ -63,16 +63,14 @@ class ProjectionTest < ActiveSupport::TestCase
     it "accumulates state changes correctly when processing a sequence of events" do
       state = basic_projection.process_events([ Events4CurrentTest::Start.new(value: 5),
                                                 Events4CurrentTest::Add.new(value: 4),
-                                                Events4CurrentTest::Add.new(value: 2) ],
-                                              Time.current)
+                                                Events4CurrentTest::Add.new(value: 2) ])
       assert_equal 11, state.value
     end
 
     it "ignores unknown events while continuing to process valid events in the sequence" do
       state = basic_projection.process_events([ Events4CurrentTest::Start.new(value: 5),
                                                 Events4CurrentTest::Unknown.new,
-                                                Events4CurrentTest::Add.new(value: 2) ],
-                                              Time.current)
+                                                Events4CurrentTest::Add.new(value: 2) ])
       assert_equal 7, state.value
     end
   end
@@ -81,8 +79,7 @@ class ProjectionTest < ActiveSupport::TestCase
     it "silently ignores unknown events by default without raising exceptions" do
       assert_nothing_raised do
         basic_projection.process_events([ Events4CurrentTest::Start.new(value: 5),
-                                          Events4CurrentTest::Unknown.new ],
-                                        Time.current)
+                                          Events4CurrentTest::Unknown.new ])
       end
     end
 
@@ -96,9 +93,190 @@ class ProjectionTest < ActiveSupport::TestCase
 
       assert_raises Funes::UnknownEvent do
         projection_that_does_not_ignore_unknown_events.process_events([ Events4CurrentTest::Start.new(value: 5),
-                                                                        Events4CurrentTest::Unknown.new ],
-                                                                      Time.current)
+                                                                        Events4CurrentTest::Unknown.new ])
       end
+    end
+  end
+
+  describe "temporal argument (at) in process_events" do
+    temporal_materialization = Class.new do
+      include ActiveModel::Model
+      include ActiveModel::Attributes
+
+      attribute :value, :integer
+      attribute :temporal_arg, :datetime
+    end
+
+    it "passes at to interpretation blocks when at is provided" do
+      at_time = Time.new(2025, 6, 15, 12, 0, 0)
+
+      projection_with_at = Class.new(Funes::Projection) do
+        materialization_model temporal_materialization
+
+        interpretation_for Events4CurrentTest::Start do |state, event, temporal|
+          state.assign_attributes(value: event.value, temporal_arg: temporal)
+          state
+        end
+      end
+
+      state = projection_with_at.process_events([ Events4CurrentTest::Start.new(value: 1) ], at: at_time)
+
+      assert_equal at_time, state.temporal_arg
+    end
+
+    it "passes nil to interpretation blocks when at is not provided" do
+      projection_no_at = Class.new(Funes::Projection) do
+        materialization_model temporal_materialization
+
+        interpretation_for Events4CurrentTest::Start do |state, event, temporal|
+          state.assign_attributes(value: event.value, temporal_arg: temporal)
+          state
+        end
+      end
+
+      state = projection_no_at.process_events([ Events4CurrentTest::Start.new(value: 1) ])
+
+      assert_nil state.temporal_arg
+    end
+
+    it "passes at to final_state block when at is provided" do
+      at_time = Time.new(2025, 6, 15, 12, 0, 0)
+
+      projection_with_final = Class.new(Funes::Projection) do
+        materialization_model temporal_materialization
+
+        interpretation_for Events4CurrentTest::Start do |state, event, _temporal|
+          state.assign_attributes(value: event.value)
+          state
+        end
+
+        final_state do |state, temporal|
+          state.assign_attributes(temporal_arg: temporal)
+          state
+        end
+      end
+
+      state = projection_with_final.process_events([ Events4CurrentTest::Start.new(value: 1) ], at: at_time)
+
+      assert_equal at_time, state.temporal_arg
+    end
+
+    it "passes nil to final_state block when at is not provided" do
+      projection_with_final = Class.new(Funes::Projection) do
+        materialization_model temporal_materialization
+
+        interpretation_for Events4CurrentTest::Start do |state, event, _temporal|
+          state.assign_attributes(value: event.value)
+          state
+        end
+
+        final_state do |state, temporal|
+          state.assign_attributes(temporal_arg: temporal)
+          state
+        end
+      end
+
+      state = projection_with_final.process_events([ Events4CurrentTest::Start.new(value: 1) ])
+
+      assert_nil state.temporal_arg
+    end
+
+    it "passes at to initial_state block when at is provided" do
+      at_time = Time.new(2025, 6, 15, 12, 0, 0)
+
+      projection_with_init = Class.new(Funes::Projection) do
+        materialization_model temporal_materialization
+
+        initial_state do |model, temporal|
+          model.new(temporal_arg: temporal)
+        end
+
+        interpretation_for Events4CurrentTest::Start do |state, event, _temporal|
+          state.assign_attributes(value: event.value)
+          state
+        end
+      end
+
+      state = projection_with_init.process_events([ Events4CurrentTest::Start.new(value: 1) ], at: at_time)
+
+      assert_equal at_time, state.temporal_arg
+    end
+
+    it "passes nil to initial_state block when at is not provided" do
+      projection_with_init = Class.new(Funes::Projection) do
+        materialization_model temporal_materialization
+
+        initial_state do |model, temporal|
+          model.new(temporal_arg: temporal)
+        end
+
+        interpretation_for Events4CurrentTest::Start do |state, event, _temporal|
+          state.assign_attributes(value: event.value)
+          state
+        end
+      end
+
+      state = projection_with_init.process_events([ Events4CurrentTest::Start.new(value: 1) ])
+
+      assert_nil state.temporal_arg
+    end
+
+    it "uses event.occurred_at for interpretation blocks when event is persisted" do
+      at_time = Time.new(2025, 6, 15, 12, 0, 0)
+      occurred_at_time = Time.new(2025, 3, 1, 9, 0, 0)
+
+      projection_with_occurred_at = Class.new(Funes::Projection) do
+        materialization_model temporal_materialization
+
+        interpretation_for Events4CurrentTest::Start do |state, event, temporal|
+          state.assign_attributes(value: event.value, temporal_arg: temporal)
+          state
+        end
+      end
+
+      event = Events4CurrentTest::Start.new(value: 1)
+      event._event_entry = Funes::EventEntry.new(occurred_at: occurred_at_time)
+
+      state = projection_with_occurred_at.process_events([ event ], at: at_time)
+
+      assert_equal occurred_at_time, state.temporal_arg
+    end
+
+    it "interpretation blocks receive event.occurred_at independently per event" do
+      occurred_at_first = Time.new(2025, 1, 10, 8, 0, 0)
+      occurred_at_second = Time.new(2025, 4, 20, 16, 0, 0)
+      at_time = Time.new(2025, 6, 15, 12, 0, 0)
+
+      temporal_log_materialization = Class.new do
+        include ActiveModel::Model
+        include ActiveModel::Attributes
+
+        attribute :temporal_args, default: -> { [] }
+      end
+
+      projection_multi = Class.new(Funes::Projection) do
+        materialization_model temporal_log_materialization
+
+        interpretation_for Events4CurrentTest::Start do |state, event, temporal|
+          state.temporal_args << temporal
+          state
+        end
+
+        interpretation_for Events4CurrentTest::Add do |state, event, temporal|
+          state.temporal_args << temporal
+          state
+        end
+      end
+
+      event_one = Events4CurrentTest::Start.new(value: 1)
+      event_one._event_entry = Funes::EventEntry.new(occurred_at: occurred_at_first)
+
+      event_two = Events4CurrentTest::Add.new(value: 2)
+      event_two._event_entry = Funes::EventEntry.new(occurred_at: occurred_at_second)
+
+      state = projection_multi.process_events([ event_one, event_two ], at: at_time)
+
+      assert_equal [ occurred_at_first, occurred_at_second ], state.temporal_args
     end
   end
 
@@ -123,7 +301,7 @@ class ProjectionTest < ActiveSupport::TestCase
       describe "when there is no materialization model set" do
         it "raises UnknownMaterializationModel when no materialization model is set" do
           assert_raises Funes::UnknownMaterializationModel do
-            basic_projection_without_materialization_model.materialize!(events_log, "some-id", Time.current)
+            basic_projection_without_materialization_model.materialize!(events_log, "some-id")
           end
         end
       end
@@ -131,7 +309,7 @@ class ProjectionTest < ActiveSupport::TestCase
       describe "when the materialization model is an Active model" do
         it "returns an instance with the computed attribute values" do
           materialized_return = projection_with_activemodel_as_materialization_model
-                                  .materialize!(events_log, "some-id", Time.current)
+                                  .materialize!(events_log, "some-id")
 
           assert_instance_of activemodel_materialization, materialized_return
           assert_equal materialized_return.value, 11
@@ -141,38 +319,38 @@ class ProjectionTest < ActiveSupport::TestCase
       describe "when the materialization model is an ActiveRecord subclass" do
         it "returns an instance of the materialization model" do
           materialized_return = projection_with_activerecord_as_materialization_model
-                                  .materialize!(events_log, "some-id", Time.current)
+                                  .materialize!(events_log, "some-id")
 
           assert_instance_of UnitTests::Materialization, materialized_return
         end
 
         it "creates the expected record in the database" do
           assert_difference -> { UnitTests::Materialization.count }, 1 do
-            projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id", Time.current)
+            projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id")
           end
           assert UnitTests::Materialization.find_by(idx: "some-id")
         end
 
         it "persists and returns the materialized data based on the projection computation" do
-          projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id", Time.current)
+          projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id")
 
           assert_equal UnitTests::Materialization.find_by(idx: "some-id").values_at(:idx, :value), [ "some-id", 11 ]
         end
 
         describe "when a record of the materialization is already persisted" do
           it "does not create a duplicate record when one already exists" do
-            projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id", Time.current)
+            projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id")
 
             assert_no_difference -> { UnitTests::Materialization.count } do
-              projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id", Time.current)
+              projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id")
             end
           end
 
           it "updates the previously persisted record when the computed data changes" do
-            projection_with_activerecord_as_materialization_model.materialize!(events_log.take(2), "some-id", Time.current)
+            projection_with_activerecord_as_materialization_model.materialize!(events_log.take(2), "some-id")
             assert_equal UnitTests::Materialization.find_by(idx: "some-id").values_at(:idx, :value), [ "some-id", 9 ]
 
-            projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id", Time.current)
+            projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id")
             assert_equal UnitTests::Materialization.find_by(idx: "some-id").values_at(:idx, :value), [ "some-id", 11 ]
           end
         end
