@@ -10,7 +10,16 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_09_19_013253) do
+ActiveRecord::Schema[8.0].define(version: 2026_03_10_193152) do
+  create_table "deposits", id: false, force: :cascade do |t|
+    t.string "idx", null: false
+    t.date "created_at", null: false
+    t.decimal "original_value", null: false
+    t.decimal "balance", null: false
+    t.integer "status", default: 0, null: false
+    t.index ["idx"], name: "index_deposits_on_idx", unique: true
+  end
+
   create_table "event_entries", id: false, force: :cascade do |t|
     t.string "klass", null: false
     t.string "idx", null: false
@@ -20,9 +29,9 @@ ActiveRecord::Schema[7.1].define(version: 2025_09_19_013253) do
     t.datetime "created_at", null: false
     t.datetime "occurred_at", null: false
     t.index ["created_at"], name: "index_event_entries_on_created_at"
-    t.index ["occurred_at"], name: "index_event_entries_on_occurred_at"
     t.index ["idx", "version"], name: "index_event_entries_on_idx_and_version", unique: true
     t.index ["idx"], name: "index_event_entries_on_idx"
+    t.index ["occurred_at"], name: "index_event_entries_on_occurred_at"
   end
 
   create_table "materializations", id: false, force: :cascade do |t|

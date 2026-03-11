@@ -12,57 +12,123 @@ module Examples
       it "does not have events for the expected stream" do
         assert_empty DepositEventStream.for(stream_idx).events
       end
+
+      it "does not have a snapshot" do
+        assert_raises(ActiveRecord::RecordNotFound) { Examples::Deposit::Snapshot.find(stream_idx) }
+      end
     end
 
     describe "deposit creation" do
-      it "does not accept/persist invalid creation events" do
-        creation_event = DepositEvents::Created.new(effective_date: Time.current, value: -5_000)
-        DepositEventStream.for(stream_idx).append(creation_event)
+      describe "with an invalid creation event" do
+        let(:creation_event) { DepositEvents::Created.new(effective_date: Time.current, value: -5_000) }
 
-        refute creation_event.persisted?
-        assert_equal [ "must be greater than 0" ], creation_event.own_errors[:value]
-        assert_empty creation_event.state_errors
+        before do
+          DepositEventStream.for(stream_idx).append(creation_event)
+        end
+
+        it "does not persist the event" do
+          refute creation_event.persisted?
+        end
+
+        it "reports own errors on the event" do
+          assert_equal [ "must be greater than 0" ], creation_event.own_errors[:value]
+          assert_empty creation_event.state_errors
+        end
+
+        it "does not create a snapshot" do
+          assert_raises(ActiveRecord::RecordNotFound) { Examples::Deposit::Snapshot.find(stream_idx) }
+        end
       end
 
-      it "accepts/persists valid creation events" do
-        creation_event = DepositEvents::Created.new(effective_date: Time.current, value: 5_000)
-        DepositEventStream.for(stream_idx).append(creation_event)
+      describe "with a valid creation event" do
+        let(:creation_event) { DepositEvents::Created.new(effective_date: Time.current, value: 5_000) }
 
-        assert creation_event.persisted?
-        assert_not_empty DepositEventStream.for(stream_idx).events
+        before do
+          DepositEventStream.for(stream_idx).append(creation_event)
+        end
+
+        it "persists the new event" do
+          assert creation_event.persisted?
+        end
+
+        it "has no errors" do
+          assert creation_event.errors.empty?
+        end
+
+        it "creates a snapshot with the deposit values" do
+          snapshot = Examples::Deposit::Snapshot.find(stream_idx)
+          assert_not_nil snapshot
+          assert_equal 5_000, snapshot.original_value
+          assert_equal 5_000, snapshot.balance
+          assert snapshot.active?
+        end
       end
     end
 
     describe "deposit withdrawn" do
+      let(:original_deposit_value) { 5_000 }
+
       before do
         DepositEventStream
           .for(stream_idx)
-          .append(DepositEvents::Created.new(effective_date: Time.current, value: 5_000))
+          .append(DepositEvents::Created.new(effective_date: Time.current, value: original_deposit_value))
       end
 
-      it "does not accept/persist invalid withdrawn events" do
-        withdrawn_event = DepositEvents::Withdrawn.new(amount: -1_000, effective_date: Time.current)
-        DepositEventStream.for(stream_idx).append(withdrawn_event)
+      describe "with an invalid withdrawn event" do
+        let(:withdrawn_event) { DepositEvents::Withdrawn.new(amount: -1_000, effective_date: Time.current) }
 
-        refute withdrawn_event.persisted?
-        assert_equal [ "must be greater than 0" ], withdrawn_event.own_errors[:amount]
-        assert_empty withdrawn_event.state_errors
+        before { DepositEventStream.for(stream_idx).append(withdrawn_event) }
+
+        it "does not persist the new event" do
+          refute withdrawn_event.persisted?
+        end
+
+        it "reports own errors on the event" do
+          assert_equal [ "must be greater than 0" ], withdrawn_event.own_errors[:amount]
+          assert_empty withdrawn_event.state_errors
+        end
+
+        it "does not update the snapshot" do
+          assert_equal original_deposit_value, Examples::Deposit::Snapshot.find(stream_idx).balance
+        end
       end
 
-      it "does not accept/persist valid withdrawn events that leads to invalid states" do
-        withdrawn_event = DepositEvents::Withdrawn.new(amount: 7_000, effective_date: Time.current)
-        DepositEventStream.for(stream_idx).append(withdrawn_event)
+      describe "with a valid withdrawn event that leads to an invalid state" do
+        let(:withdrawn_event) { DepositEvents::Withdrawn.new(amount: 7_000, effective_date: Time.current) }
 
-        refute withdrawn_event.persisted?
-        assert_empty withdrawn_event.own_errors
-        assert_equal [ "must be greater than or equal to 0" ], withdrawn_event.state_errors[:balance]
+        before { DepositEventStream.for(stream_idx).append(withdrawn_event) }
+
+        it "does not persist the new event" do
+          refute withdrawn_event.persisted?
+        end
+
+        it "reports state errors on the event" do
+          assert_empty withdrawn_event.own_errors
+          assert_equal [ "must be greater than or equal to 0" ], withdrawn_event.state_errors[:balance]
+        end
+
+        it "does not update the snapshot" do
+          assert_equal original_deposit_value, Examples::Deposit::Snapshot.find(stream_idx).balance
+          assert Examples::Deposit::Snapshot.find(stream_idx).active?
+        end
       end
 
-      it "accepts/persists valid withdrawn events that leads to valid states" do
-        withdrawn_event = DepositEvents::Withdrawn.new(amount: 3_000, effective_date: Time.current)
-        DepositEventStream.for(stream_idx).append(withdrawn_event)
+      describe "with a valid withdrawn event that leads to a valid state" do
+        let(:withdrawn_event) { DepositEvents::Withdrawn.new(amount: 3_000, effective_date: Time.current) }
 
-        assert withdrawn_event.persisted?
+        before { DepositEventStream.for(stream_idx).append(withdrawn_event) }
+
+        it "persists the new event" do
+          assert withdrawn_event.persisted?
+        end
+
+        it "has no errors" do
+          assert_empty withdrawn_event.errors
+        end
+
+        it "updates the snapshot balance" do
+          assert_equal 2_000, Examples::Deposit::Snapshot.find(stream_idx).balance
+        end
       end
     end
   end
