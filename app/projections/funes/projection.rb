@@ -159,19 +159,24 @@ module Funes
     def initialize(interpretations, materialization_model, throws_on_unknown_events)
       @interpretations = interpretations
       @materialization_model = materialization_model
+      raise Funes::UnknownMaterializationModel,
+            "There is no materialization model configured on #{self.class.name}" unless @materialization_model.present?
+
+
       @throws_on_unknown_events = throws_on_unknown_events
     end
 
     # @!visibility private
     def process_events(events_collection, at: nil, consistency: false)
-      initial_state = interpretations[:init].present? ? interpretations[:init].call(@materialization_model, at) : @materialization_model.new
+      actual_at = at || Time.current
+      initial_state = interpretations[:init].present? ? interpretations[:init].call(@materialization_model, actual_at) : @materialization_model.new
       state = events_collection.inject(initial_state) do |previous_state, event|
         fn = @interpretations[event.class]
         if fn.nil? && throws_on_unknown_events?
           raise Funes::UnknownEvent, "Events of the type #{event.class} are not processable"
         end
 
-        event_at = event.occurred_at || at
+        event_at = event.persisted? ? event.occurred_at : actual_at
         result = fn.nil? ? previous_state : fn.call(previous_state, event, event_at)
 
         warn_about_ineffective_errors(event) unless consistency
@@ -179,15 +184,12 @@ module Funes
         result
       end
 
-      state = interpretations[:final].call(state, at) if interpretations[:final].present?
+      state = interpretations[:final].call(state, actual_at) if interpretations[:final].present?
       state
     end
 
     # @!visibility private
     def materialize!(events_collection, idx, at: nil)
-      raise Funes::UnknownMaterializationModel,
-            "There is no materialization model configured on #{self.class.name}" unless @materialization_model.present?
-
       state = process_events(events_collection, at: at)
       materialized_model_instance = materialized_model_instance_based_on(state)
       if materialization_model_is_persistable?

@@ -10,7 +10,15 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_03_10_193152) do
+ActiveRecord::Schema[8.0].define(version: 2026_03_11_190825) do
+  create_table "deposit_last_activities", id: false, force: :cascade do |t|
+    t.string "idx", null: false
+    t.integer "activity_type", default: 0, null: false
+    t.date "creation_date", null: false
+    t.date "activity_date", null: false
+    t.index ["idx"], name: "index_deposit_last_activities_on_idx", unique: true
+  end
+
   create_table "deposits", id: false, force: :cascade do |t|
     t.string "idx", null: false
     t.date "created_at", null: false
@@ -32,11 +40,5 @@ ActiveRecord::Schema[8.0].define(version: 2026_03_10_193152) do
     t.index ["idx", "version"], name: "index_event_entries_on_idx_and_version", unique: true
     t.index ["idx"], name: "index_event_entries_on_idx"
     t.index ["occurred_at"], name: "index_event_entries_on_occurred_at"
-  end
-
-  create_table "materializations", id: false, force: :cascade do |t|
-    t.integer "value", null: false
-    t.string "idx", null: false
-    t.index ["idx"], name: "index_materializations_on_idx", unique: true
   end
 end

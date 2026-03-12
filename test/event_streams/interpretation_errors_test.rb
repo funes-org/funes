@@ -88,7 +88,7 @@ class InterpretationErrorsTest < ActiveSupport::TestCase
 
   describe "when interpretation errors are added" do
     describe "on a fresh stream" do
-      invalid_event = Events4CurrentTest::Start.new(value: -5)
+      let(:invalid_event) { Events4CurrentTest::Start.new(value: -5) }
 
       it "does not persist the event" do
         assert_no_difference -> { Funes::EventEntry.count } do
@@ -124,7 +124,7 @@ class InterpretationErrorsTest < ActiveSupport::TestCase
         SubjectEventStream.for("hadouken").append(Events4CurrentTest::Start.new(value: 5))
       end
 
-      invalid_event = Events4CurrentTest::Add.new(value: 200)
+      let(:invalid_event) { Events4CurrentTest::Add.new(value: 200) }
 
       it "does not persist the new invalid event" do
         assert_no_difference -> { Funes::EventEntry.count } do
