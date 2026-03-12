@@ -6,8 +6,8 @@ module Funes
   # conflicting actual times for the same event.
   #
   # @example
-  #   # Given a stream with actual_time_attribute :at
-  #   stream.append(Salary::Raised.new(amount: 6500, at: feb_15), at: mar_1)
+  #   # Given a stream with actual_time_attribute :effective_date
+  #   stream.append(Salary::Raised.new(amount: 6500, effective_date: feb_15), at: mar_1)
   #   # => raises Funes::ConflictingActualTimeError
   class ConflictingActualTimeError < StandardError; end
 end

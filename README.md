@@ -224,11 +224,11 @@ Or configure the stream to extract it from an event attribute automatically:
 
 ```ruby
 class SalaryEventStream < Funes::EventStream
-  actual_time_attribute :at
+  actual_time_attribute :effective_date
 end
 
-# The :at attribute value is used as occurred_at automatically
-stream.append(Salary::Raised.new(amount: 6500, at: Time.new(2025, 2, 15)))
+# The :effective_date attribute value is used as occurred_at automatically
+stream.append(Salary::Raised.new(amount: 6500, effective_date: Time.new(2025, 2, 15)))
 ```
 
 When `at:` is not provided and no `actual_time_attribute` is configured, `occurred_at` defaults to the same value as `created_at`.

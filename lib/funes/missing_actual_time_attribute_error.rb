@@ -7,11 +7,11 @@ module Funes
   #
   # @example
   #   class SalaryEventStream < Funes::EventStream
-  #     actual_time_attribute :at
+  #     actual_time_attribute :effective_date
   #   end
   #
-  #   # Appending an event without an :at attribute:
-  #   stream.append(EventWithoutAt.new)
+  #   # Appending an event without an :effective_date attribute:
+  #   stream.append(EventWithoutEffectiveDate.new)
   #   # => raises Funes::MissingActualTimeAttributeError
   class MissingActualTimeAttributeError < StandardError; end
 end

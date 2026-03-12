@@ -44,7 +44,7 @@ module Funes
   #
   # @example Define a stream with actual time extraction
   #   class SalaryEventStream < Funes::EventStream
-  #     actual_time_attribute :at
+  #     actual_time_attribute :effective_date
   #   end
   #
   # @example Append events to a stream
@@ -161,7 +161,7 @@ module Funes
       #
       # @example
       #   class SalaryEventStream < Funes::EventStream
-      #     actual_time_attribute :at
+      #     actual_time_attribute :effective_date
       #   end
       def actual_time_attribute(attribute_name = nil)
         if attribute_name
