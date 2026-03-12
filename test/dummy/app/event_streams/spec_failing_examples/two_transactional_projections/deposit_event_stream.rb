@@ -3,7 +3,9 @@ module SpecFailingExamples::TwoTransactionalProjections
     materialization_model Examples::Deposit::LastActivities
 
     interpretation_for Examples::DepositEvents::Created do |state, _event, at|
-      state.assign_attributes(activity_type: :creation, creation_date: nil, activity_date: nil)
+      state.assign_attributes(activity_type: :creation,
+                              creation_date: nil, # violates a NOT NULL constraint
+                              activity_date: nil)
       state
     end
   end
