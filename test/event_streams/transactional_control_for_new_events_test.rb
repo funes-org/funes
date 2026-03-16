@@ -32,19 +32,29 @@ class TransactionalControlForNewEventsTest < ActiveSupport::TestCase
   end
 
   describe "when EventEntry insertion fails due to version conflict" do
-    it "does not run transactional projections when event persistence fails " do
-      event_stream_instance = Examples::DepositEventStream.for(idx)
-      event = Examples::DepositEvents::Created.new(value: 42, effective_date: Date.today)
+    let(:event) { Examples::DepositEvents::Created.new(value: 42, effective_date: Date.today) }
 
+    before do
       Funes::EventEntry.create!(klass: Examples::DepositEvents::Created.name, idx: idx, version: 1,
                                 props: { value: 100, effective_date: Date.today }, occurred_at: Time.current)
 
-      assert_no_difference -> { Examples::Deposit::Snapshot.count }, "No event should be created" do
-        event_stream_instance.append(event)
-      end
-      assert_not event.persisted?, "Event should NOT be marked as persisted"
-      assert event.errors[:base].present?, "The racing condition error should be added to the event's errors"
-      refute Examples::Deposit::Snapshot.exists?(idx: idx), "No materialization was created for this idx"
+      Examples::DepositEventStream.for(idx).append(event)
+    end
+
+    it "does not create the transactional projection materialization" do
+      assert_equal 0, Examples::Deposit::Snapshot.where(idx: idx).count
+    end
+
+    it "does not mark the event as persisted" do
+      assert_not event.persisted?
+    end
+
+    it "adds the racing condition error to the event's errors" do
+      assert event.errors[:base].present?
+    end
+
+    it "does not create a materialization for this idx" do
+      refute Examples::Deposit::Snapshot.exists?(idx: idx)
     end
   end
 
@@ -125,10 +135,9 @@ class TransactionalControlForNewEventsTest < ActiveSupport::TestCase
         StreamWithMultipleProjections.for(idx).append(event)
       end
 
-      assert_not event.persisted?, "Event should NOT be marked as persisted after rollback"
-      refute Funes::EventEntry.exists?(idx: idx), "EventEntry should not exist after rollback"
-      refute Examples::Deposit::Snapshot.exists?(idx: idx),
-             "Materialization should not exist (for both projections) after rollback"
+      assert_not event.persisted?
+      refute Funes::EventEntry.exists?(idx: idx)
+      refute Examples::Deposit::Snapshot.exists?(idx: idx)
     end
   end
 
