@@ -60,3 +60,10 @@ jobs:
         env:
           RAILS_ENV: test
         run: bundle exec appraisal rails-${{ matrix.rails }} bin/rails test
+
+      - name: Upload coverage report
+        if: matrix.ruby == '3.4' && matrix.rails == '8.1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
