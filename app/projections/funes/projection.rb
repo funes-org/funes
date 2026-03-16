@@ -218,6 +218,7 @@ module Funes
       end
 
       def persist_based_on!(state)
+        raise ActiveRecord::RecordInvalid.new(state) unless state.valid?
         @materialization_model.upsert(state.attributes, unique_by: :idx)
       end
 

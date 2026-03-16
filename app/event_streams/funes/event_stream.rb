@@ -248,7 +248,7 @@ module Funes
           new_event._event_entry = nil
           new_event.errors.add(:base, I18n.t("funes.events.racing_condition_on_insert"))
           raise ActiveRecord::Rollback
-        rescue ActiveRecord::StatementInvalid => e
+        rescue ActiveRecord::StatementInvalid, ActiveRecord::RecordInvalid => e
           new_event._event_entry = nil
           raise e
         end

@@ -35,10 +35,12 @@ class TransactionalControlForNewEventsTest < ActiveSupport::TestCase
     let(:event) { Examples::DepositEvents::Created.new(value: 42, effective_date: Date.today) }
 
     before do
-      Funes::EventEntry.create!(klass: Examples::DepositEvents::Created.name, idx: idx, version: 1,
-                                props: { value: 100, effective_date: Date.today }, occurred_at: Time.current)
-
-      Examples::DepositEventStream.for(idx).append(event)
+      stream = Examples::DepositEventStream.for(idx)
+      travel_to(1.second.from_now) do
+        Funes::EventEntry.create!(klass: Examples::DepositEvents::Created.name, idx: idx, version: 1,
+                                  props: { value: 100, effective_date: Date.today }, occurred_at: Time.current)
+      end
+      stream.append(event)
     end
 
     it "does not create the transactional projection materialization" do
@@ -105,7 +107,22 @@ class TransactionalControlForNewEventsTest < ActiveSupport::TestCase
   end
 
   describe "when the single transactional projection fails on AR validation" do
-    it { skip :pending }
+    let(:event) { Examples::DepositEvents::Created.new(value: 42, effective_date: Date.today) }
+
+    before do
+      assert_raises(ActiveRecord::RecordInvalid) do
+        SpecFailingExamples::SingleTransactionalProjection::DepositEventStreamWithValidationFailure.for(idx).append(event)
+      end
+    end
+
+    it "raises the original exception and doesn't persist the event in the event log" do
+      refute Funes::EventEntry.exists?(idx: idx)
+      refute event.persisted?
+    end
+
+    it "doesn't persist the projection materialization model" do
+      refute Examples::Deposit::LastActivities.exists?(idx: idx)
+    end
   end
 
   describe "when one of multiple transactional projections fails on upsert" do
@@ -127,12 +144,11 @@ class TransactionalControlForNewEventsTest < ActiveSupport::TestCase
     end
 
     it "raises the original database error and rolls back all changes (all-or-nothing)" do
-      skip :drop
       idx = "txn-multi-proj-fail-#{SecureRandom.uuid}"
       event = Examples::DepositEvents::Created.new(value: 42, effective_date: Date.today)
 
       assert_raises(ActiveRecord::StatementInvalid) do
-        StreamWithMultipleProjections.for(idx).append(event)
+        SpecFailingExamples::TwoTransactionalProjections::DepositEventStream.for(idx).append(event)
       end
 
       assert_not event.persisted?
@@ -142,6 +158,22 @@ class TransactionalControlForNewEventsTest < ActiveSupport::TestCase
   end
 
   describe "when one of multiple transactional projection fails on AR validation" do
-    it { skip :pending }
+    let(:event) { Examples::DepositEvents::Created.new(value: 42, effective_date: Date.today) }
+
+    before do
+      assert_raises(ActiveRecord::RecordInvalid) do
+        SpecFailingExamples::TwoTransactionalProjections::DepositEventStreamWithValidationFailure.for(idx).append(event)
+      end
+    end
+
+    it "raises the original exception and doesn't persist the event in the event log" do
+      refute Funes::EventEntry.exists?(idx: idx)
+      refute event.persisted?
+    end
+
+    it "rolls back all transactional projection materializations" do
+      refute Examples::Deposit::LastActivities.exists?(idx: idx)
+      refute Examples::Deposit::Snapshot.exists?(idx: idx)
+    end
   end
 end
