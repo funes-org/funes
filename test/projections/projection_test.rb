@@ -166,15 +166,15 @@ class ProjectionTest < ActiveSupport::TestCase
         it "interprets the event using its occurrence data instead of the informed `at`" do
           at_value = Date.today + 1.year
           event_effective_date = Time.current
-          persisted_event = Funes::EventEntry
-                              .create!(klass: "Examples::DepositEvents::Created", created_at: Time.current,
-                                       occurred_at: event_effective_date, idx: "some-id",
-                                       props: { value: 1, effective_date: event_effective_date.to_date })
-                              .to_klass_instance
+          event_entry = Funes::EventEntry
+                          .create!(klass: "Examples::DepositEvents::Created", created_at: Time.current,
+                                   occurred_at: event_effective_date, idx: "some-id",
+                                   props: { value: 1, effective_date: event_effective_date.to_date })
+          persisted_event = event_entry.to_klass_instance
 
-          assert_equal event_effective_date, LocalProjectionForInspection
-                                               .process_events([ persisted_event ], at: at_value)
-                                               .event_temporal_arg
+          assert_equal event_entry.occurred_at, LocalProjectionForInspection
+                                                  .process_events([ persisted_event ], at: at_value)
+                                                  .event_temporal_arg
         end
       end
     end
