@@ -1,4 +1,4 @@
-class AddDepositLastActivities < ActiveRecord::Migration[8.0]
+class AddDepositLastActivities < ActiveRecord::Migration[7.1]
   def change
     create_table :deposit_last_activities, id: false, primary_key: :idx do |t|
       t.string :idx, null: false

@@ -1,4 +1,4 @@
-class AddEvents < ActiveRecord::Migration[8.0]
+class AddEvents < ActiveRecord::Migration[7.1]
   def change
     create_table :event_entries, id: false do |t|
       t.column :klass, :string, null: false

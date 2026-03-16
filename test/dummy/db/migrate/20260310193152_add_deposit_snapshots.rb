@@ -1,4 +1,4 @@
-class AddDepositSnapshots < ActiveRecord::Migration[8.0]
+class AddDepositSnapshots < ActiveRecord::Migration[7.1]
   def change
     create_table :deposits, id: false, primary_key: :idx do |t|
       t.string :idx, null: false

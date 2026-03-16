@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_03_11_190825) do
+ActiveRecord::Schema[7.1].define(version: 2026_03_11_190825) do
   create_table "deposit_last_activities", id: false, force: :cascade do |t|
     t.string "idx", null: false
     t.integer "activity_type", default: 0, null: false
