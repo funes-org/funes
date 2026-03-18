@@ -1,7 +1,4 @@
-require "simplecov"
-SimpleCov.start "rails" do
-  add_filter "/test/"
-end
+require_relative "simplecov_helper"
 
 # Configure Rails Environment
 ENV["RAILS_ENV"] = "test"
