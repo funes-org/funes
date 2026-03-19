@@ -27,3 +27,34 @@ namespace :docs do
     puts "Documentation generated in #{output_dir}/"
   end
 end
+
+namespace :guides do
+  guides_dir = File.expand_path("guides", __dir__)
+
+  desc "Install Jekyll dependencies for guides (one-time setup)"
+  task :setup do
+    Bundler.with_unbundled_env do
+      Dir.chdir(guides_dir) do
+        system("bundle install") || abort("Failed to install guides dependencies")
+      end
+    end
+  end
+
+  desc "Build the guides site into guides/_site/"
+  task :build do
+    Bundler.with_unbundled_env do
+      Dir.chdir(guides_dir) do
+        system("bundle exec jekyll build") || abort("Failed to build guides")
+      end
+    end
+  end
+
+  desc "Start Jekyll dev server with live reload at localhost:4000/guides/"
+  task :serve do
+    Bundler.with_unbundled_env do
+      Dir.chdir(guides_dir) do
+        system("bundle exec jekyll serve --livereload")
+      end
+    end
+  end
+end

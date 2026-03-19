@@ -1,0 +1,15 @@
+title: Funes Guides
+description: Tutorials and guides for the Funes event sourcing framework
+
+baseurl: /guides
+url: https://docs.funes.org
+
+theme: just-the-docs
+color_scheme: funes
+
+permalink: pretty
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - README.md
