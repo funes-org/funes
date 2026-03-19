@@ -269,9 +269,9 @@ module Funes
     # Get all events in the stream as event instances.
     #
     # Returns both previously persisted events (up to `as_of` timestamp) and any new events
-    # appended in this session.
+    # appended in this session, sorted by `occurred_at` ascending.
     #
-    # @return [Array<Funes::Event>] Array of event instances.
+    # @return [Array<Funes::Event>] Array of event instances ordered by `occurred_at`.
     #
     # @example
     #   stream = OrderEventStream.for("order-123")
@@ -279,7 +279,9 @@ module Funes
     #     puts "#{event.class.name} at #{event.created_at}"
     #   end
     def events
-      (previous_events + @instance_new_events).map(&:to_klass_instance)
+      entries = previous_events.to_a + @instance_new_events
+      entries.sort_by!(&:occurred_at) if @instance_new_events.any?
+      entries.map(&:to_klass_instance)
     end
 
     # Projects the stream's events using the given projection class.

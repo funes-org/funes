@@ -268,6 +268,34 @@ class BitemporalTest < ActiveSupport::TestCase
 
       assert_equal 7000, result.salary
     end
+
+    describe "events ordering when in-session events are appended out of order" do
+      let(:idx) { "salary-in-session-ordering-#{SecureRandom.uuid}" }
+      let(:event_stream) { stream_without_actual_time.for(idx) }
+
+      before do
+        event_stream.append(SalarySet.new(amount: 6000), at: Time.new(2025, 3, 1))
+        event_stream.append(SalaryRaised.new(amount: 6500), at: Time.new(2025, 1, 15))
+      end
+
+      it "process (setting the amount) the SalarySet after the SalaryRaised - so they are properly ordered" do
+        assert_equal 6000, event_stream.projected_with(salary_projection).salary
+      end
+    end
+
+    describe "events ordering when there is a mix of previously persisted and new ones in the events collection" do
+      let(:idx) { "salary-in-session-ordering-#{SecureRandom.uuid}" }
+      let(:event_stream) { stream_without_actual_time.for(idx) }
+
+      before do
+        stream_without_actual_time.for(idx).append(SalarySet.new(amount: 6000), at: Time.new(2025, 3, 1))
+        event_stream.append(SalaryRaised.new(amount: 6500), at: Time.new(2025, 1, 15))
+      end
+
+      it "process (setting the amount) the SalarySet after the SalaryRaised - so they are properly ordered" do
+        assert_equal 6000, event_stream.projected_with(salary_projection).salary
+      end
+    end
   end
 
   describe "version assignment with retroactive events" do
