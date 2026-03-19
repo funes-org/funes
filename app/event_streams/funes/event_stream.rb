@@ -44,7 +44,7 @@ module Funes
   #
   # @example Define a stream with actual time extraction
   #   class SalaryEventStream < Funes::EventStream
-  #     actual_time_attribute :at
+  #     actual_time_attribute :effective_date
   #   end
   #
   # @example Append events to a stream
@@ -161,7 +161,7 @@ module Funes
       #
       # @example
       #   class SalaryEventStream < Funes::EventStream
-      #     actual_time_attribute :at
+      #     actual_time_attribute :effective_date
       #   end
       def actual_time_attribute(attribute_name = nil)
         if attribute_name
@@ -248,7 +248,7 @@ module Funes
           new_event._event_entry = nil
           new_event.errors.add(:base, I18n.t("funes.events.racing_condition_on_insert"))
           raise ActiveRecord::Rollback
-        rescue ActiveRecord::StatementInvalid => e
+        rescue ActiveRecord::StatementInvalid, ActiveRecord::RecordInvalid => e
           new_event._event_entry = nil
           raise e
         end

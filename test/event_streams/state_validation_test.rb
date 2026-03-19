@@ -41,7 +41,7 @@ class StateValidationTest < ActiveSupport::TestCase
 
   describe "when the state validation fails" do
     describe "on a fresh stream" do
-      event_that_led_to_invalid_state = Events4CurrentTest::Start.new(value: -1)
+      let(:event_that_led_to_invalid_state) { Events4CurrentTest::Start.new(value: -1) }
 
       it "does not persist the new event in the event log" do
         assert_no_difference -> { Funes::EventEntry.count } do
@@ -79,7 +79,7 @@ class StateValidationTest < ActiveSupport::TestCase
         SubjectEventStream.for("hadouken").append(Events4CurrentTest::Start.new(value: 0))
       end
 
-      event_that_led_to_invalid_state = Events4CurrentTest::Add.new(value: -1)
+      let(:event_that_led_to_invalid_state) { Events4CurrentTest::Add.new(value: -1) }
 
       it "does not persist the event in the event log" do
         assert_no_difference -> { Funes::EventEntry.count } do
@@ -114,7 +114,7 @@ class StateValidationTest < ActiveSupport::TestCase
   end
 
   describe "when the state validation does not fail" do
-    valid_event = Events4CurrentTest::Start.new(value: 0)
+    let(:valid_event) { Events4CurrentTest::Start.new(value: 0) }
 
     it "persists the new event in the event log" do
       assert_difference -> { Funes::EventEntry.count }, 1 do

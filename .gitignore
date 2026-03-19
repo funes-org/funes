@@ -12,3 +12,4 @@
 /test/dummy/tmp/
 /.idea
 gemfiles/*.lock
+/coverage/

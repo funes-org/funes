@@ -57,25 +57,21 @@ An **Event** is an immutable representation of a fact. Unlike a traditional mode
 * **Built-in validation:** since events behaves similarly to `ActiveModel`, they carry their own internal validation rules (e.g., ensuring a quantity is present).
 
 ```ruby
-module Debt
-  class Issued < Funes::Event
-    attribute :amount, :decimal
-    attribute :interest_rate, :decimal
-    attribute :at, :datetime
+module Deposit
+  class Created < Funes::Event
+    attribute :value, :decimal
+    attribute :effective_date, :date
 
-    validates_presence_of :at
-    validates :amount, numericality: { greater_than: 0 }
-    validates :interest_rate, numericality: { greater_than_or_equal_to: 0 }
+    validates :value, presence: true, numericality: { greater_than: 0 }
+    validates :effective_date, presence: true
   end
 
-  class PaymentReceived < Funes::Event
-    attribute :principal_amount, :decimal
-    attribute :interest_amount, :decimal
-    attribute :at, :datetime
+  class Withdrawn < Funes::Event
+    attribute :amount, :decimal
+    attribute :effective_date, :date
 
-    validates_presence_of :at
-    validates :principal_amount, numericality: { greater_than_or_equal_to: 0 }
-    validates :interest_amount, numericality: { greater_than_or_equal_to: 0 }
+    validates :amount, presence: true, numericality: { greater_than: 0 }
+    validates :effective_date, presence: true
   end
 end
 ```
@@ -90,25 +86,28 @@ A **Projection** transforms events into a **materialized representation** — th
 **Note on architectural philosophy:** Projections in Funes follow a **functional programming approach** rather than object-oriented patterns. Each `interpretation_for` block is a pure transformation function that receives state, applies the event's effects, and returns the updated state. This approach ensures projections remain predictable, testable, and free from side effects. The state flows through interpretations as immutable snapshots being transformed, rather than objects being mutated.
 
 ```ruby
-class OutstandingBalance
+class DepositConsistency
   include ActiveModel::Model
   include ActiveModel::Attributes
 
-  attribute :outstanding_balance, :decimal
-  attribute :last_payment_at, :datetime
+  attribute :original_value, :decimal
+  attribute :balance, :decimal
 
-  validates :outstanding_balance, numericality: { greater_than_or_equal_to: 0 }
+  validates :original_value, presence: true, numericality: { greater_than: 0 }
+  validates :balance, presence: true, numericality: { greater_than_or_equal_to: 0 }
 end
 
-class VirtualOutstandingBalanceProjection < Funes::Projection
-  materialization_model OutstandingBalance
+class DepositConsistencyProjection < Funes::Projection
+  materialization_model DepositConsistency
 
-  interpretation_for Debt::Issued do |state, issuance_event, _at|
-    # your logic here to handle the interest curve, update and return the state
+  interpretation_for Deposit::Created do |state, creation_event, _at|
+    state.assign_attributes(original_value: creation_event.value, balance: creation_event.value)
+    state
   end
 
-  interpretation_for Debt::PaymentReceived do |state, payment_event|
-    # your logic here to handle the payment effects to update and return the state
+  interpretation_for Deposit::Withdrawn do |state, withdrawn_event, _at|
+    state.assign_attributes(balance: state.balance - withdrawn_event.amount)
+    state
   end
 end
 ```
@@ -148,16 +147,17 @@ An **Event Stream** is a logical grouping of events (e.g., all events for `Accou
 * **Consistency tiers:** the stream orchestrates how and when your projections (transactional or async) update.
 
 ```ruby
-class DebtEventStream < Funes::EventStream
-  consistency_projection VirtualOutstandingBalanceProjection
+class DepositEventStream < Funes::EventStream
+  consistency_projection DepositConsistencyProjection
+  actual_time_attribute :effective_date
 end
 
-valid_event = Debt::Issued.new(amount: 100, interest_rate: 0.05, at: Time.current)
-DebtEventStream.for("debts-identifier").append(valid_event)
+valid_event = Deposit::Created.new(value: 5_000, effective_date: Date.current)
+DepositEventStream.for("deposit-123").append(valid_event)
 valid_event.persisted? # => true
 
-invalid_event = Debt::PaymentReceived.new(principal_amount: 100, interest_amount: 50, at: valid_event.at)
-DebtEventStream.for("debts-identifier").append(invalid_event) # => led to overpayment invalid state
+invalid_event = Deposit::Withdrawn.new(amount: 7_000, effective_date: Date.current)
+DepositEventStream.for("deposit-123").append(invalid_event) # => led to negative balance invalid state
 invalid_event.persisted? # => false
 invalid_event.errors.empty? # => false
 ```
@@ -180,7 +180,8 @@ Funes gives you fine-grained control over when and how projections run:
 ### Transactional projections
 
 * **Atomic updates:** these update your persistent read models (`ActiveRecord`) within the same database transaction as the event.
-* **Fail-loud on errors:** if a projection fails with a database error (e.g., constraint violation), the transaction rolls back, the event is marked as not persisted (`persisted?` returns `false`), and the exception propagates. This ensures bugs are immediately visible rather than silently hidden, while keeping the event in a consistent state for any rescue logic in your application.
+* **Validation before persistence:** before upserting the materialization, Funes runs ActiveRecord validations on the materialization model. If the model is invalid, an `ActiveRecord::RecordInvalid` exception is raised, the transaction rolls back, and the event is not persisted.
+* **Fail-loud on errors:** if a projection fails with a database error (e.g., constraint violation) or a validation error, the transaction rolls back, the event is marked as not persisted (`persisted?` returns `false`), and the exception (`ActiveRecord::StatementInvalid` or `ActiveRecord::RecordInvalid`) propagates. This ensures bugs are immediately visible rather than silently hidden, while keeping the event in a consistent state for any rescue logic in your application.
 
 ### Async projections
 
@@ -224,11 +225,11 @@ Or configure the stream to extract it from an event attribute automatically:
 
 ```ruby
 class SalaryEventStream < Funes::EventStream
-  actual_time_attribute :at
+  actual_time_attribute :effective_date
 end
 
-# The :at attribute value is used as occurred_at automatically
-stream.append(Salary::Raised.new(amount: 6500, at: Time.new(2025, 2, 15)))
+# The :effective_date attribute value is used as occurred_at automatically
+stream.append(Salary::Raised.new(amount: 6500, effective_date: Time.new(2025, 2, 15)))
 ```
 
 When `at:` is not provided and no `actual_time_attribute` is configured, `occurred_at` defaults to the same value as `created_at`.
@@ -256,9 +257,10 @@ stream.projected_with(SalaryProjection, as_of: Time.new(2025, 3, 1), at: Time.ne
 Projections' interpretation blocks receive `at` as their third parameter — the temporal reference used when projecting:
 
 ```ruby
-interpretation_for(Debt::Issued) do |state, event, at|
-  present_value = event.amount * (1 + event.interest_rate) ** periods_between(event.at, at)
-  state.assign_attributes(present_value:)
+interpretation_for(Deposit::Created) do |state, event, at|
+  state.assign_attributes(original_value: event.value,
+                          balance: event.value,
+                          created_at: at)
   state
 end
 ```
