@@ -1,13 +1,17 @@
 title: Funes Guides
 description: Tutorials and guides for the Funes event sourcing framework
 
-baseurl: /guides
+baseurl: ""
 url: https://docs.funes.org
 
 theme: just-the-docs
 color_scheme: funes
 
 permalink: pretty
+
+nav_external_links:
+  - title: API Reference
+    url: https://rubydoc.info/github/funes-org/funes
 
 exclude:
   - Gemfile
