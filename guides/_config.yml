@@ -10,6 +10,8 @@ color_scheme: funes
 permalink: pretty
 
 nav_external_links:
+  - title: funes.org
+    url: https://funes.org
   - title: API Reference
     url: https://rubydoc.info/github/funes-org/funes
 
