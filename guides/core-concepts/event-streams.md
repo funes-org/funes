@@ -24,14 +24,13 @@ You define a stream by inheriting from `Funes::EventStream`, then use `.for` to 
 
 ```ruby
 # app/event_streams/debt_event_stream.rb
-class DebtEventStream < Funes::EventStream
-end
-
-event = Debt::Issued.new(amount: 100, interest_rate: 0.05, at: Time.current)
-DebtEventStream.for("debts-123").append(event)
+class DebtEventStream < Funes::EventStream; end
+DebtEventStream.for("debts-123").append(Debt::Issued.new(amount: 100, interest_rate: 0.05, at: Time.current))
 ```
 
 The string passed to `.for` is the stream identifier (`idx`). It links all events for that entity together and ties them to their read models.
+
+You don't need to create a stream before using it. If no events have been recorded for a given `idx`, the stream is implicitly created the moment the first event is appended. There is no setup step — `DebtEventStream.for("debts-456")` works whether `"debts-456"` has a hundred events or none at all.
 
 ## Double validation
 

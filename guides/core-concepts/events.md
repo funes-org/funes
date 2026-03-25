@@ -47,15 +47,3 @@ end
 
 Because events are `ActiveModel` instances and not `ActiveRecord` models, they are **schema-independent**. Your historical facts never need a migration just because your UI requirements changed.
 
-## Checking persistence
-
-After appending an event to a stream, you can check whether it was successfully persisted:
-
-```ruby
-event = Debt::Issued.new(amount: 100, interest_rate: 0.05, at: Time.current)
-DebtEventStream.for("debts-123").append(event)
-
-event.persisted? # => true
-```
-
-If the event failed validation, `persisted?` returns `false` and `event.errors` tells you why.

@@ -15,16 +15,11 @@ A frictionless event sourcing experience for Rails developers.
 
 ---
 
-{: .warning }
-> Funes is under active development and is not yet ready for production use. The API may change without notice. Use it in development and testing environments only.
-
 Funes is designed to give RoR developers a frictionless experience building systems where history is as important as the present. Built with the one-person framework philosophy in mind, it honors the Rails doctrine by providing deep **conceptual compression** over what is usually a complex architectural pattern.
 
 By distilling the mechanics of event sourcing into just three core concepts — **Events**, **Streams**, and **Projections** — Funes handles the underlying complexity of persistence and state reconstruction for you. It feels like the Rails you already know, giving you the power of a permanent source of truth with the same ease of use as a standard ActiveRecord model.
 
 Unlike traditional event sourcing frameworks that require a total shift in how you build, Funes is designed for **progressive adoption**. It coexists seamlessly with your existing ActiveRecord models and standard controllers. You can use Funes for a single mission-critical feature while keeping the rest of your app in plain Rails.
-
-> Named after Funes the Memorious, the Borges character who could forget nothing. In some systems, remembering everything matters.
 
 ## Why event sourcing?
 
@@ -33,7 +28,7 @@ In a typical Rails app, data has no past — only a present. You `update!` a rec
 This gives you:
 
 - **Complete audit trail** — every state change is recorded, forever
-- **Temporal queries** — "what was the balance on December 1st?"
+- **Temporal queries** — "what was the entity state on December 1st?"
 - **Multiple read models** — the same events, different projections for different use cases
 - **Safer refactoring** — rebuild any projection from the event log
 
