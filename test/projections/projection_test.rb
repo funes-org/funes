@@ -4,354 +4,250 @@ require "minitest/spec"
 class ProjectionTest < ActiveSupport::TestCase
   extend Minitest::Spec::DSL
 
-  module Events4CurrentTest
-    class Add < Funes::Event; attribute :value, :integer; end
-    class Start < Funes::Event; attribute :value, :integer; end
-    class Unknown < Funes::Event; end
+  class LocalUnknownDepositEvent < Funes::Event; end
+
+  describe "function/interpretation management" do
+    test "projections persist their interpretation as Proc objects" do
+      assert Examples::Deposit::ConsistencyProjection
+               .instance_variable_get(:@interpretations)[Examples::DepositEvents::Created].is_a?(Proc)
+      assert Examples::Deposit::ConsistencyProjection
+               .instance_variable_get(:@interpretations)[Examples::DepositEvents::Withdrawn].is_a?(Proc)
+    end
+
+    test "projections return nothing while accessing events without interpretation set" do
+      assert_nil Examples::Deposit::ConsistencyProjection
+                   .instance_variable_get(:@interpretations)[LocalUnknownDepositEvent]
+    end
   end
 
-  module BasicInterpretations4CurrentTest
-    def self.included(base)
-      base.class_eval do
-        initial_state do |materialization_model|
-          materialization_model.new
-        end
-
-        interpretation_for Events4CurrentTest::Start do |state, event|
-          state.assign_attributes(value: event.value)
-          state
-        end
-
-        interpretation_for Events4CurrentTest::Add do |state, event|
-          state.assign_attributes(value: state.value + event.value)
-          state
-        end
+  describe "materialization model missing management" do
+    it "raises UnknownMaterializationModel on materialization" do
+      assert_raises Funes::UnknownMaterializationModel do
+        Class.new(Funes::Projection)
+             .materialize!([ Examples::DepositEvents::Created
+                               .new(value: 100, effective_date: Date.today) ], "some-id")
       end
     end
-  end
 
-  activemodel_materialization = Class.new do
-    include ActiveModel::Model
-    include ActiveModel::Attributes
-
-    attribute :value, :integer
-  end
-
-  basic_projection = Class.new(Funes::Projection) do
-    materialization_model activemodel_materialization
-
-    include BasicInterpretations4CurrentTest
-  end
-
-  basic_projection_without_materialization_model = Class.new(Funes::Projection) do
-    include BasicInterpretations4CurrentTest
-  end
-
-  describe "function management" do
-    it "sets event interpretations properly as Proc objects" do
-      assert basic_projection.instance_variable_get(:@interpretations)[Events4CurrentTest::Start].is_a?(Proc)
-      assert basic_projection.instance_variable_get(:@interpretations)[Events4CurrentTest::Add].is_a?(Proc)
-    end
-
-    it "returns nil instead of a Proc when accessing an event without defined interpretation" do
-      # assert basic_projection.interpretations[Events4CurrentTest::Unknown].nil?
-      assert basic_projection.instance_variable_get(:@interpretations)[Events4CurrentTest::Unknown].nil?
+    it "raises UnknownMaterializationModel on process_events" do
+      assert_raises Funes::UnknownMaterializationModel do
+        Class.new(Funes::Projection)
+             .process_events([ Examples::DepositEvents::Created
+                               .new(value: 100, effective_date: Date.today) ])
+      end
     end
   end
 
   describe "accumulation of state interpretations through #process_events" do
     it "accumulates state changes correctly when processing a sequence of events" do
-      state = basic_projection.process_events([ Events4CurrentTest::Start.new(value: 5),
-                                                Events4CurrentTest::Add.new(value: 4),
-                                                Events4CurrentTest::Add.new(value: 2) ])
-      assert_equal 11, state.value
+      assert_equal 50, Examples::Deposit::ConsistencyProjection
+                         .process_events([ Examples::DepositEvents::Created.new(value: 100, effective_date: Date.today),
+                                           Examples::DepositEvents::Withdrawn.new(amount: 30, effective_date: Date.today),
+                                           Examples::DepositEvents::Withdrawn.new(amount: 20, effective_date: Date.today) ])
+                         .balance
     end
 
     it "ignores unknown events while continuing to process valid events in the sequence" do
-      state = basic_projection.process_events([ Events4CurrentTest::Start.new(value: 5),
-                                                Events4CurrentTest::Unknown.new,
-                                                Events4CurrentTest::Add.new(value: 2) ])
-      assert_equal 7, state.value
+      assert_equal 70, Examples::Deposit::ConsistencyProjection
+                         .process_events([ Examples::DepositEvents::Created.new(value: 100, effective_date: Date.today),
+                                          LocalUnknownDepositEvent.new,
+                                          Examples::DepositEvents::Withdrawn.new(amount: 30, effective_date: Date.today) ])
+                         .balance
     end
   end
 
   describe "exceptions management while interpreting unknown events" do
     it "silently ignores unknown events by default without raising exceptions" do
       assert_nothing_raised do
-        basic_projection.process_events([ Events4CurrentTest::Start.new(value: 5),
-                                          Events4CurrentTest::Unknown.new ])
+        Examples::Deposit::ConsistencyProjection
+          .process_events([ Examples::DepositEvents::Created.new(value: 100, effective_date: Date.today),
+                           LocalUnknownDepositEvent.new ])
       end
     end
 
     it "raises an exception when processing unknown events with strict configuration enabled" do
-      projection_that_does_not_ignore_unknown_events = Class.new(Funes::Projection) do
+      local_deposit_projection_that_does_not_ignore_unknown_events = Class.new(Funes::Projection) do
         raise_on_unknown_events
-        materialization_model activemodel_materialization
-
-        include BasicInterpretations4CurrentTest
+        materialization_model Examples::Deposit::Consistency
+        interpretation_for Examples::DepositEvents::Created do |state, _event, _at| state end
+        interpretation_for Examples::DepositEvents::Withdrawn do |state, _event, _at| state end
       end
 
       assert_raises Funes::UnknownEvent do
-        projection_that_does_not_ignore_unknown_events.process_events([ Events4CurrentTest::Start.new(value: 5),
-                                                                        Events4CurrentTest::Unknown.new ])
+        local_deposit_projection_that_does_not_ignore_unknown_events
+          .process_events([ Examples::DepositEvents::Created.new(value: 100, effective_date: Date.today),
+                           LocalUnknownDepositEvent.new ])
       end
     end
   end
 
   describe "temporal argument (at) in process_events" do
-    temporal_materialization = Class.new do
+    class TemporalMaterializationForInspection
       include ActiveModel::Model
       include ActiveModel::Attributes
 
-      attribute :value, :integer
-      attribute :temporal_arg, :datetime
+      attribute :initial_state_temporal_arg, :datetime
+      attribute :event_temporal_arg, :datetime
+      attribute :final_state_temporal_arg, :datetime
     end
 
-    it "passes at to interpretation blocks when at is provided" do
-      at_time = Time.new(2025, 6, 15, 12, 0, 0)
+    class LocalProjectionForInspection < Funes::Projection
+      materialization_model TemporalMaterializationForInspection
 
-      projection_with_at = Class.new(Funes::Projection) do
-        materialization_model temporal_materialization
-
-        interpretation_for Events4CurrentTest::Start do |state, event, temporal|
-          state.assign_attributes(value: event.value, temporal_arg: temporal)
-          state
-        end
+      initial_state do |materialization_model_class, at|
+        materialization_model_class.new(initial_state_temporal_arg: at)
       end
 
-      state = projection_with_at.process_events([ Events4CurrentTest::Start.new(value: 1) ], at: at_time)
-
-      assert_equal at_time, state.temporal_arg
-    end
-
-    it "passes nil to interpretation blocks when at is not provided" do
-      projection_no_at = Class.new(Funes::Projection) do
-        materialization_model temporal_materialization
-
-        interpretation_for Events4CurrentTest::Start do |state, event, temporal|
-          state.assign_attributes(value: event.value, temporal_arg: temporal)
-          state
-        end
+      interpretation_for Examples::DepositEvents::Created do |state, _event, at|
+        state.assign_attributes(event_temporal_arg: at); state
       end
 
-      state = projection_no_at.process_events([ Events4CurrentTest::Start.new(value: 1) ])
-
-      assert_nil state.temporal_arg
-    end
-
-    it "passes at to final_state block when at is provided" do
-      at_time = Time.new(2025, 6, 15, 12, 0, 0)
-
-      projection_with_final = Class.new(Funes::Projection) do
-        materialization_model temporal_materialization
-
-        interpretation_for Events4CurrentTest::Start do |state, event, _temporal|
-          state.assign_attributes(value: event.value)
-          state
-        end
-
-        final_state do |state, temporal|
-          state.assign_attributes(temporal_arg: temporal)
-          state
-        end
+      final_state do |state, at|
+        state.assign_attributes(final_state_temporal_arg: at); state
       end
-
-      state = projection_with_final.process_events([ Events4CurrentTest::Start.new(value: 1) ], at: at_time)
-
-      assert_equal at_time, state.temporal_arg
     end
 
-    it "passes nil to final_state block when at is not provided" do
-      projection_with_final = Class.new(Funes::Projection) do
-        materialization_model temporal_materialization
-
-        interpretation_for Events4CurrentTest::Start do |state, event, _temporal|
-          state.assign_attributes(value: event.value)
-          state
+    describe "initial and final interpretations" do
+      describe "when the `at` is not informed" do
+        it "interprets the initial state with `Time.current` as `at`" do
+          freeze_time do
+            assert_equal Time.current, LocalProjectionForInspection
+                                         .process_events([ Examples::DepositEvents::Created
+                                                             .new(value: 1, effective_date: Date.today) ])
+                                         .initial_state_temporal_arg
+          end
         end
 
-        final_state do |state, temporal|
-          state.assign_attributes(temporal_arg: temporal)
-          state
-        end
-      end
-
-      state = projection_with_final.process_events([ Events4CurrentTest::Start.new(value: 1) ])
-
-      assert_nil state.temporal_arg
-    end
-
-    it "passes at to initial_state block when at is provided" do
-      at_time = Time.new(2025, 6, 15, 12, 0, 0)
-
-      projection_with_init = Class.new(Funes::Projection) do
-        materialization_model temporal_materialization
-
-        initial_state do |model, temporal|
-          model.new(temporal_arg: temporal)
-        end
-
-        interpretation_for Events4CurrentTest::Start do |state, event, _temporal|
-          state.assign_attributes(value: event.value)
-          state
-        end
-      end
-
-      state = projection_with_init.process_events([ Events4CurrentTest::Start.new(value: 1) ], at: at_time)
-
-      assert_equal at_time, state.temporal_arg
-    end
-
-    it "passes nil to initial_state block when at is not provided" do
-      projection_with_init = Class.new(Funes::Projection) do
-        materialization_model temporal_materialization
-
-        initial_state do |model, temporal|
-          model.new(temporal_arg: temporal)
-        end
-
-        interpretation_for Events4CurrentTest::Start do |state, event, _temporal|
-          state.assign_attributes(value: event.value)
-          state
-        end
-      end
-
-      state = projection_with_init.process_events([ Events4CurrentTest::Start.new(value: 1) ])
-
-      assert_nil state.temporal_arg
-    end
-
-    it "uses event.occurred_at for interpretation blocks when event is persisted" do
-      at_time = Time.new(2025, 6, 15, 12, 0, 0)
-      occurred_at_time = Time.new(2025, 3, 1, 9, 0, 0)
-
-      projection_with_occurred_at = Class.new(Funes::Projection) do
-        materialization_model temporal_materialization
-
-        interpretation_for Events4CurrentTest::Start do |state, event, temporal|
-          state.assign_attributes(value: event.value, temporal_arg: temporal)
-          state
-        end
-      end
-
-      event = Events4CurrentTest::Start.new(value: 1)
-      event._event_entry = Funes::EventEntry.new(occurred_at: occurred_at_time)
-
-      state = projection_with_occurred_at.process_events([ event ], at: at_time)
-
-      assert_equal occurred_at_time, state.temporal_arg
-    end
-
-    it "interpretation blocks receive event.occurred_at independently per event" do
-      occurred_at_first = Time.new(2025, 1, 10, 8, 0, 0)
-      occurred_at_second = Time.new(2025, 4, 20, 16, 0, 0)
-      at_time = Time.new(2025, 6, 15, 12, 0, 0)
-
-      temporal_log_materialization = Class.new do
-        include ActiveModel::Model
-        include ActiveModel::Attributes
-
-        attribute :temporal_args, default: -> { [] }
-      end
-
-      projection_multi = Class.new(Funes::Projection) do
-        materialization_model temporal_log_materialization
-
-        interpretation_for Events4CurrentTest::Start do |state, event, temporal|
-          state.temporal_args << temporal
-          state
-        end
-
-        interpretation_for Events4CurrentTest::Add do |state, event, temporal|
-          state.temporal_args << temporal
-          state
-        end
-      end
-
-      event_one = Events4CurrentTest::Start.new(value: 1)
-      event_one._event_entry = Funes::EventEntry.new(occurred_at: occurred_at_first)
-
-      event_two = Events4CurrentTest::Add.new(value: 2)
-      event_two._event_entry = Funes::EventEntry.new(occurred_at: occurred_at_second)
-
-      state = projection_multi.process_events([ event_one, event_two ], at: at_time)
-
-      assert_equal [ occurred_at_first, occurred_at_second ], state.temporal_args
-    end
-  end
-
-  describe "persistence management" do
-    projection_with_activemodel_as_materialization_model = Class.new(Funes::Projection) do
-      materialization_model activemodel_materialization
-
-      include BasicInterpretations4CurrentTest
-    end
-
-    projection_with_activerecord_as_materialization_model = Class.new(Funes::Projection) do
-      materialization_model UnitTests::Materialization
-
-      include BasicInterpretations4CurrentTest
-    end
-
-    describe "materialization behavior" do
-      events_log = [ Events4CurrentTest::Start.new(value: 5),
-                     Events4CurrentTest::Add.new(value: 4),
-                     Events4CurrentTest::Add.new(value: 2) ]
-
-      describe "when there is no materialization model set" do
-        it "raises UnknownMaterializationModel when no materialization model is set" do
-          assert_raises Funes::UnknownMaterializationModel do
-            basic_projection_without_materialization_model.materialize!(events_log, "some-id")
+        it "interprets the final state with `Time.current` as `at`" do
+          freeze_time do
+            assert_equal Time.current, LocalProjectionForInspection
+                                         .process_events([ Examples::DepositEvents::Created
+                                                             .new(value: 1, effective_date: Date.today) ])
+                                         .final_state_temporal_arg
           end
         end
       end
 
-      describe "when the materialization model is an Active model" do
-        it "returns an instance with the computed attribute values" do
-          materialized_return = projection_with_activemodel_as_materialization_model
-                                  .materialize!(events_log, "some-id")
+      describe "when the `at` is informed" do
+        at_value = Date.today + 1.year
 
-          assert_instance_of activemodel_materialization, materialized_return
-          assert_equal materialized_return.value, 11
+        it "interprets the initial state with the informed `at`" do
+          assert_equal at_value, LocalProjectionForInspection
+                                   .process_events([ Examples::DepositEvents::Created
+                                                       .new(value: 1, effective_date: Date.today) ],
+                                                   at: at_value)
+                                   .initial_state_temporal_arg
+        end
+
+        it "interprets the final state with the informed `at`" do
+          assert_equal at_value, LocalProjectionForInspection
+                                   .process_events([ Examples::DepositEvents::Created
+                                                       .new(value: 1, effective_date: Date.tomorrow) ],
+                                                   at: at_value)
+                                   .final_state_temporal_arg
+        end
+      end
+    end
+
+    describe "event interpretation" do
+      describe "when the event is not persisted" do
+        at_value = Date.today + 1.year
+
+        it "interprets the event using the informed `at`" do
+          assert_equal at_value, LocalProjectionForInspection
+                                   .process_events([ Examples::DepositEvents::Created
+                                                       .new(value: 1, effective_date: Date.tomorrow) ],
+                                                   at: at_value)
+                                   .event_temporal_arg
+        end
+      end
+
+      describe "when the event is persisted" do
+        it "interprets the event using its occurrence data instead of the informed `at`" do
+          at_value = Date.today + 1.year
+          event_effective_date = Time.current
+          event_entry = Funes::EventEntry
+                          .create!(klass: "Examples::DepositEvents::Created", created_at: Time.current,
+                                   occurred_at: event_effective_date, idx: "some-id",
+                                   props: { value: 1, effective_date: event_effective_date.to_date })
+          persisted_event = event_entry.to_klass_instance
+
+          assert_equal event_entry.occurred_at, LocalProjectionForInspection
+                                                  .process_events([ persisted_event ], at: at_value)
+                                                  .event_temporal_arg
+        end
+      end
+    end
+  end
+
+  describe "persistence management when the materialization model is an ActiveRecord subclass" do
+    let(:today) { Date.today }
+    let(:events_coll) { [ Examples::DepositEvents::Created.new(value: 100, effective_date: today),
+                           Examples::DepositEvents::Withdrawn.new(amount: 30, effective_date: today),
+                           Examples::DepositEvents::Withdrawn.new(amount: 20, effective_date: today) ] }
+
+    describe "materialization behavior" do
+      describe "when the materialization model is an Active model" do
+        it "returns an instance of the materialization model" do
+          materialized_return = Examples::Deposit::ConsistencyProjection
+                                  .materialize!(events_coll, "some-id", at: today)
+
+          assert_instance_of Examples::Deposit::Consistency, materialized_return
+        end
+
+
+        it "calls process_events but does not call persist_based_on! to persist it in the database" do
+          process_events_called = false
+          persist_called = false
+
+          spy_class = Class.new(Funes::Projection) do
+            @materialization_model = Examples::Deposit::ConsistencyProjection
+                                       .instance_variable_get(:@materialization_model)
+            @interpretations = Examples::Deposit::ConsistencyProjection.instance_variable_get(:@interpretations)
+
+            define_method(:process_events) { |*a, **kw| process_events_called = true; super(*a, **kw) }
+            define_method(:persist_based_on!) { |*| persist_called = true }
+          end
+
+          spy_class.materialize!(events_coll, "some-id")
+
+          assert process_events_called
+          refute persist_called
         end
       end
 
       describe "when the materialization model is an ActiveRecord subclass" do
         it "returns an instance of the materialization model" do
-          materialized_return = projection_with_activerecord_as_materialization_model
-                                  .materialize!(events_log, "some-id")
+          materialized_return = Examples::Deposit::SnapshotProjection
+                                  .materialize!(events_coll, "some-id", at: today)
 
-          assert_instance_of UnitTests::Materialization, materialized_return
+          assert_instance_of Examples::Deposit::Snapshot, materialized_return
         end
 
         it "creates the expected record in the database" do
-          assert_difference -> { UnitTests::Materialization.count }, 1 do
-            projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id")
+          assert_difference -> { Examples::Deposit::Snapshot.count }, 1 do
+            Examples::Deposit::SnapshotProjection.materialize!(events_coll, "some-id", at: today)
           end
-          assert UnitTests::Materialization.find_by(idx: "some-id")
-        end
-
-        it "persists and returns the materialized data based on the projection computation" do
-          projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id")
-
-          assert_equal UnitTests::Materialization.find_by(idx: "some-id").values_at(:idx, :value), [ "some-id", 11 ]
+          assert Examples::Deposit::Snapshot.find("some-id")
         end
 
         describe "when a record of the materialization is already persisted" do
           it "does not create a duplicate record when one already exists" do
-            projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id")
+            Examples::Deposit::SnapshotProjection.materialize!(events_coll, "some-id", at: today)
 
-            assert_no_difference -> { UnitTests::Materialization.count } do
-              projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id")
+            assert_no_difference -> { Examples::Deposit::Snapshot.count } do
+              Examples::Deposit::SnapshotProjection.materialize!(events_coll, "some-id", at: today)
             end
           end
 
           it "updates the previously persisted record when the computed data changes" do
-            projection_with_activerecord_as_materialization_model.materialize!(events_log.take(2), "some-id")
-            assert_equal UnitTests::Materialization.find_by(idx: "some-id").values_at(:idx, :value), [ "some-id", 9 ]
+            Examples::Deposit::SnapshotProjection.materialize!(events_coll.take(2), "some-id", at: today)
+            previous_snapshot = Examples::Deposit::Snapshot.find("some-id")
+            Examples::Deposit::SnapshotProjection.materialize!(events_coll, "some-id", at: today)
+            posterior_snapshot = Examples::Deposit::Snapshot.find("some-id")
 
-            projection_with_activerecord_as_materialization_model.materialize!(events_log, "some-id")
-            assert_equal UnitTests::Materialization.find_by(idx: "some-id").values_at(:idx, :value), [ "some-id", 11 ]
+            assert_equal 70, previous_snapshot.balance
+            assert_equal 50, posterior_snapshot.balance
           end
         end
       end

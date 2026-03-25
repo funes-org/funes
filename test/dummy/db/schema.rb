@@ -10,14 +10,22 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_09_27_111752) do
-  create_table "debt_collections", id: false, force: :cascade do |t|
+ActiveRecord::Schema[7.1].define(version: 2026_03_11_190825) do
+  create_table "deposit_last_activities", id: false, force: :cascade do |t|
     t.string "idx", null: false
-    t.decimal "outstanding_balance", precision: 15, scale: 2, null: false
-    t.date "issuance_date", null: false
-    t.date "last_payment_date"
-    t.integer "status", null: false
-    t.index ["idx"], name: "index_debt_collections_on_idx", unique: true
+    t.integer "activity_type", default: 0, null: false
+    t.date "creation_date", null: false
+    t.date "activity_date", null: false
+    t.index ["idx"], name: "index_deposit_last_activities_on_idx", unique: true
+  end
+
+  create_table "deposits", id: false, force: :cascade do |t|
+    t.string "idx", null: false
+    t.date "created_at", null: false
+    t.decimal "original_value", null: false
+    t.decimal "balance", null: false
+    t.integer "status", default: 0, null: false
+    t.index ["idx"], name: "index_deposits_on_idx", unique: true
   end
 
   create_table "event_entries", id: false, force: :cascade do |t|
@@ -29,14 +37,8 @@ ActiveRecord::Schema[7.1].define(version: 2025_09_27_111752) do
     t.datetime "created_at", null: false
     t.datetime "occurred_at", null: false
     t.index ["created_at"], name: "index_event_entries_on_created_at"
-    t.index ["occurred_at"], name: "index_event_entries_on_occurred_at"
     t.index ["idx", "version"], name: "index_event_entries_on_idx_and_version", unique: true
     t.index ["idx"], name: "index_event_entries_on_idx"
-  end
-
-  create_table "materializations", id: false, force: :cascade do |t|
-    t.integer "value", null: false
-    t.string "idx", null: false
-    t.index ["idx"], name: "index_materializations_on_idx", unique: true
+    t.index ["occurred_at"], name: "index_event_entries_on_occurred_at"
   end
 end

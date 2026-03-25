@@ -1,3 +1,5 @@
+require_relative "simplecov_helper"
+
 # Configure Rails Environment
 ENV["RAILS_ENV"] = "test"
 

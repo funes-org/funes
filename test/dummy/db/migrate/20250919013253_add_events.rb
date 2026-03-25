@@ -1,4 +1,4 @@
-class AddEvents < ActiveRecord::Migration[8.0]
+class AddEvents < ActiveRecord::Migration[7.1]
   def change
     create_table :event_entries, id: false do |t|
       t.column :klass, :string, null: false
@@ -7,10 +7,12 @@ class AddEvents < ActiveRecord::Migration[8.0]
       t.column :meta_info, :json
       t.column :version, :bigint, default: 1, null: false
       t.column :created_at, :datetime, null: false
+      t.column :occurred_at, :datetime, null: false
     end
 
     add_index :event_entries, :idx
     add_index :event_entries, :created_at
+    add_index :event_entries, :occurred_at
     add_index :event_entries, [ :idx, :version ], unique: true
   end
 end

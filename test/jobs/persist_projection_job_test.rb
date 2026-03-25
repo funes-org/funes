@@ -4,142 +4,97 @@ require "minitest/spec"
 class PersistProjectionJobTest < ActiveSupport::TestCase
   extend Minitest::Spec::DSL
 
-  class TestEvent < Funes::Event
-    attribute :amount, :float
-    attribute :note, :string
-    attribute :at, :date
-  end
+  let(:idx) { "some-any-id" }
 
-  class TestMaterialization < ApplicationRecord
-    self.table_name = "debt_collections"
-    enum :status, unpaid: 0, paid: 1
-  end
-
-  class TestProjection < Funes::Projection
-    materialization_model TestMaterialization
-
-    initial_state do
-      TestMaterialization.new
-    end
-
-    interpretation_for TestEvent do |state, event, _as_of|
-      current_total = state.outstanding_balance || 0
-      new_balance = current_total + event.amount
-
-      state.assign_attributes(outstanding_balance: new_balance,
-                              issuance_date: state.issuance_date || event.at || Date.today,
-                              status: new_balance.zero? ? :paid : :unpaid)
-      state
-    end
+  before do
+    now = Time.current
+    Funes::EventEntry.create!(klass: "Examples::DepositEvents::Created", idx: idx, version: 1,
+                              props: { value: 100, effective_date: now.to_date }, created_at: now, occurred_at: now)
   end
 
   describe "#perform" do
-    it "materializes and persists a projection from event stream events" do
-      idx = "test-123"
-
-      Funes::EventEntry.create!(klass: "PersistProjectionJobTest::TestEvent",
-                                idx: idx,
-                                version: 1,
-                                props: { amount: 100.0, note: "first", at: Date.today },
-                                occurred_at: Time.current)
-
-      assert_nil TestMaterialization.find_by(idx: idx)
-
-      Funes::PersistProjectionJob.perform_now(idx, TestProjection)
-
-      materialization = TestMaterialization.find_by(idx: idx)
-      assert_not_nil materialization
-      assert_equal 100.0, materialization.outstanding_balance
-      assert_equal "unpaid", materialization.status
-    end
-
-    it "processes multiple events and updates the projection state" do
-      idx = "test-456"
-
-      Funes::EventEntry.create!(klass: "PersistProjectionJobTest::TestEvent",
-                                idx: idx,
-                                version: 1,
-                                props: { amount: 100.0, note: "first", at: Date.today },
-                                occurred_at: Time.current)
-
-      Funes::EventEntry.create!(klass: "PersistProjectionJobTest::TestEvent",
-                                idx: idx,
-                                version: 2,
-                                props: { amount: 50.0, note: "second", at: Date.today },
-                                occurred_at: Time.current)
-
-      Funes::PersistProjectionJob.perform_now(idx, TestProjection, Time.current)
-
-      materialization = TestMaterialization.find_by(idx: idx)
-      assert_equal 150.0, materialization.outstanding_balance
-    end
-
-    it "respects as_of parameter to filter events by time" do
-      idx = "test-temporal"
-
-      Funes::EventEntry.create!(klass: "PersistProjectionJobTest::TestEvent",
-                                idx: idx,
-                                version: 1,
-                                props: { amount: 100.0, note: "first", at: Date.new(2025, 1, 1) },
-                                created_at: Time.new(2025, 1, 1, 12, 0, 0),
-                                occurred_at: Time.new(2025, 1, 1, 12, 0, 0))
-
-      Funes::EventEntry.create!(klass: "PersistProjectionJobTest::TestEvent",
-                                idx: idx,
-                                version: 2,
-                                props: { amount: 50.0, note: "second", at: Date.new(2025, 2, 1) },
-                                created_at: Time.new(2025, 2, 1, 12, 0, 0),
-                                occurred_at: Time.new(2025, 2, 1, 12, 0, 0))
-
-      as_of = Time.new(2025, 1, 15, 12, 0, 0)
-      Funes::PersistProjectionJob.perform_now(idx, TestProjection, as_of)
-
-      materialization = TestMaterialization.find_by(idx: idx)
-      assert_equal 100.0, materialization.outstanding_balance
-    end
-
-    it "updates existing projection when called multiple times" do
-      idx = "test-update"
-
-      Funes::EventEntry.create!(klass: "PersistProjectionJobTest::TestEvent",
-                                idx: idx,
-                                version: 1,
-                                props: { amount: 100.0, note: "first", at: Date.today },
-                                occurred_at: Time.current)
-
-      Funes::PersistProjectionJob.perform_now(idx, TestProjection, Time.current)
-      assert_equal 100.0, TestMaterialization.find_by(idx: idx).outstanding_balance
-
-      Funes::EventEntry.create!(klass: "PersistProjectionJobTest::TestEvent",
-                                idx: idx,
-                                version: 2,
-                                props: { amount: 50.0, note: "second", at: Date.today },
-                                occurred_at: Time.current)
-
-      Funes::PersistProjectionJob.perform_now(idx, TestProjection, Time.current)
-
-      materialization = TestMaterialization.find_by(idx: idx)
-      assert_equal 150.0, materialization.outstanding_balance
-    end
-
-    it "passes the at parameter to materialize! as temporal context" do
-      idx = "test-at-context"
-      at_time = Time.new(2025, 6, 15, 12, 0, 0)
-
-      Funes::EventEntry.create!(klass: "PersistProjectionJobTest::TestEvent",
-                                idx: idx,
-                                version: 1,
-                                props: { amount: 100.0, note: "first", at: Date.new(2025, 6, 15) },
-                                occurred_at: at_time)
-
-      mock = Minitest::Mock.new
-      mock.expect(:call, true, [ Array, idx ], at: at_time)
-
-      TestProjection.stub(:materialize!, mock) do
-        Funes::PersistProjectionJob.perform_now(idx, TestProjection, nil, at_time)
+    describe "before any run" do
+      it "the initial event is in the database" do
+        assert Funes::EventEntry.exists?(idx: idx, klass: "Examples::DepositEvents::Created")
       end
 
-      assert_mock mock
+      it "there are no related snapshots persisted" do
+        refute Examples::Deposit::Snapshot.exists?(idx)
+      end
+    end
+
+    describe "materialization and persistence when the event stream has a single event" do
+      before { Funes::PersistProjectionJob.perform_now(idx, Examples::Deposit::SnapshotProjection) }
+
+      it "persists the projection" do
+        assert Examples::Deposit::Snapshot.exists?(idx)
+      end
+
+      it "persists the projection with the proper updated data" do
+        assert_equal 100, Examples::Deposit::Snapshot.find(idx).balance
+      end
+    end
+
+    describe "materialization and persistence when the event stream has multiple events" do
+      before do
+        Funes::EventEntry.create!(klass: "Examples::DepositEvents::Withdrawn", idx: idx, version: 2,
+                                  props: { amount: 50, effective_date: Date.today }, occurred_at: Time.current)
+
+        Funes::PersistProjectionJob.perform_now(idx, Examples::Deposit::SnapshotProjection)
+      end
+
+      it "keeps a single persisted projection" do
+        assert_equal 1, Examples::Deposit::Snapshot.where(idx: idx).count
+      end
+
+      it "persists the projection with the proper updated data" do
+        assert_equal 50, Examples::Deposit::Snapshot.find(idx).balance
+      end
+    end
+
+    describe "materialization and persistence when there are materializations previously persisted" do
+      before do
+        Funes::PersistProjectionJob.perform_now(idx, Examples::Deposit::SnapshotProjection)
+      end
+
+      test "the previous materialization really is in the database" do
+        assert_equal 100, Examples::Deposit::Snapshot.find(idx).balance
+      end
+
+      it "updates the previous materialization with the updated balance" do
+        Funes::EventEntry.create!(klass: "Examples::DepositEvents::Withdrawn", idx: idx, version: 2,
+                                  props: { amount: 50, effective_date: Date.today }, occurred_at: Time.current)
+        Funes::PersistProjectionJob.perform_now(idx, Examples::Deposit::SnapshotProjection)
+
+        assert_equal 50, Examples::Deposit::Snapshot.find(idx).balance
+      end
+    end
+
+    describe "temporal event stream slicing" do
+      before do
+        ten_days_ahead = Time.current + 10.days
+        Funes::EventEntry.create!(klass: "Examples::DepositEvents::Withdrawn", idx: idx, version: 2,
+                                  props: { amount: 50, effective_date: ten_days_ahead.to_date },
+                                  created_at: ten_days_ahead, occurred_at: ten_days_ahead)
+      end
+
+      describe "`as_of` information handling" do
+        before { Funes::PersistProjectionJob.perform_now(idx, Examples::Deposit::SnapshotProjection,
+                                                         Time.current + 5.days) }
+
+        it "computes the events until the `as_of` point in time" do
+          assert_equal 100, Examples::Deposit::Snapshot.find(idx).balance
+        end
+      end
+
+      describe "`at` information handling" do
+        before { Funes::PersistProjectionJob.perform_now(idx, Examples::Deposit::SnapshotProjection,
+                                                         nil, Time.current + 5.days) }
+
+        it "computes the events until the `at` point in time" do
+          assert_equal 100, Examples::Deposit::Snapshot.find(idx).balance
+        end
+      end
     end
   end
 end

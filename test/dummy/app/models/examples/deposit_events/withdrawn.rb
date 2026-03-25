@@ -1,5 +1,5 @@
-module Examples
-  class Salary::Set < Funes::Event
+module Examples::DepositEvents
+  class Withdrawn < Funes::Event
     attribute :amount, :decimal
     attribute :effective_date, :date
 

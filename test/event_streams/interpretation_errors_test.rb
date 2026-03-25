@@ -58,37 +58,43 @@ class InterpretationErrorsTest < ActiveSupport::TestCase
     end
 
     describe "when errors are added in a non-consistency projection" do
-      it "logs a warning and discards the errors" do
+      let(:warnings) do
         TransactionalProjectionEventStream.for("warn-test").append(Events4CurrentTest::Start.new(value: 5))
 
-        warnings = []
-        Rails.logger.define_singleton_method(:warn) { |msg| warnings << msg }
+        collected = []
+        Rails.logger.define_singleton_method(:warn) { |msg| collected << msg }
 
         TransactionalProjectionEventStream.for("warn-test").append(Events4CurrentTest::Add.new(value: -10))
+        collected
+      end
 
-        assert warnings.any? { |msg| msg.include?("[Funes]") },
-          "Expected a warning to be logged for errors in non-consistency projection"
-        assert warnings.any? { |msg| msg.include?("negative additions not allowed") },
-          "logs the proper error message"
+      it "logs a Funes warning for errors in non-consistency projection" do
+        assert warnings.any? { |msg| msg.include?("[Funes]") }
+      end
+
+      it "logs the proper error message" do
+        assert warnings.any? { |msg| msg.include?("negative additions not allowed") }
       end
     end
 
     describe "when errors are added in a consistency projection" do
-      it "does not log a warning" do
-        warnings = []
-        Rails.logger.define_singleton_method(:warn) { |msg| warnings << msg }
+      let(:warnings) do
+        collected = []
+        Rails.logger.define_singleton_method(:warn) { |msg| collected << msg }
 
         SubjectEventStream.for("no-warn-test").append(Events4CurrentTest::Start.new(value: -5))
+        collected
+      end
 
-        assert warnings.none? { |msg| msg.include?("[Funes]") },
-          "Expected no warning to be logged for errors in a consistency projection"
+      it "does not log a Funes warning for errors in a consistency projection" do
+        assert warnings.none? { |msg| msg.include?("[Funes]") }
       end
     end
   end
 
   describe "when interpretation errors are added" do
     describe "on a fresh stream" do
-      invalid_event = Events4CurrentTest::Start.new(value: -5)
+      let(:invalid_event) { Events4CurrentTest::Start.new(value: -5) }
 
       it "does not persist the event" do
         assert_no_difference -> { Funes::EventEntry.count } do
@@ -124,7 +130,7 @@ class InterpretationErrorsTest < ActiveSupport::TestCase
         SubjectEventStream.for("hadouken").append(Events4CurrentTest::Start.new(value: 5))
       end
 
-      invalid_event = Events4CurrentTest::Add.new(value: 200)
+      let(:invalid_event) { Events4CurrentTest::Add.new(value: 200) }
 
       it "does not persist the new invalid event" do
         assert_no_difference -> { Funes::EventEntry.count } do
