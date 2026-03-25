@@ -1,0 +1,35 @@
+---
+title: Home
+layout: home
+nav_order: 1
+---
+
+# Funes
+{: .fs-9 }
+
+A frictionless event sourcing experience for Rails developers.
+{: .fs-6 .fw-300 }
+
+[Get started](getting-started){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
+[View on GitHub](https://github.com/funes-org/funes){: .btn .fs-5 .mb-4 .mb-md-0 }
+
+---
+
+Funes is designed to give RoR developers a frictionless experience building systems where history is as important as the present. Built with the one-person framework philosophy in mind, it honors the Rails doctrine by providing deep **conceptual compression** over what is usually a complex architectural pattern.
+
+By distilling the mechanics of event sourcing into just three core concepts — **Events**, **Streams**, and **Projections** — Funes handles the underlying complexity of persistence and state reconstruction for you. It feels like the Rails you already know, giving you the power of a permanent source of truth with the same ease of use as a standard ActiveRecord model.
+
+Unlike traditional event sourcing frameworks that require a total shift in how you build, Funes is designed for **progressive adoption**. It coexists seamlessly with your existing ActiveRecord models and standard controllers. You can use Funes for a single mission-critical feature while keeping the rest of your app in plain Rails.
+
+## Why event sourcing?
+
+In a typical Rails app, data has no past — only a present. You `update!` a record and the previous value is gone. Event sourcing takes a different approach: store *what happened* as immutable events, then derive the current state by replaying them.
+
+This gives you:
+
+- **Complete audit trail** — every state change is recorded, forever
+- **Temporal queries** — "what was the entity state on December 1st?"
+- **Multiple read models** — the same events, different projections for different use cases
+- **Safer refactoring** — rebuild any projection from the event log
+
+It's the right choice for any application where "what was true then?" matters as much as "what is true now?"

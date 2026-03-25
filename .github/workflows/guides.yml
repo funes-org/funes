@@ -1,9 +1,11 @@
-name: Deploy Documentation
+name: Deploy Guides
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+    paths:
+      - 'guides/**'
   workflow_dispatch:
 
 permissions:
@@ -21,17 +23,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2.2'
-          bundler-cache: true
+      - name: Install guides dependencies
+        run: cd guides && bundle install
 
-      - name: Generate documentation
-        run: bundle exec rake docs:generate
+      - name: Build guides site
+        run: cd guides && bundle exec jekyll build
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -39,7 +36,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './docs'
+          path: './guides/_site'
 
   deploy:
     environment:
