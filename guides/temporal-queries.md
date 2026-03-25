@@ -17,7 +17,7 @@ After reading this guide, you will know how to query your event streams at any p
 
 ---
 
-Event sourcing preserves the full history of your system, which unlocks a class of questions that a mutable database simply cannot answer. Funes tracks two independent temporal dimensions, giving you full **bitemporal** history (see [Martin Fowler's overview](https://martinfowler.com/articles/bitemporal-history.html) for a deeper treatment of the pattern):
+Event sourcing preserves the full history of your system, which unlocks a class of questions that a mutable database simply cannot answer. Funes tracks two independent temporal dimensions, giving you full [**bitemporal**](https://martinfowler.com/articles/bitemporal-history.html) history:
 
 | Dimension | Parameter | Stored in | Question it answers |
 |:----------|:----------|:----------|:--------------------|
