@@ -2,3 +2,4 @@ _site/
 .jekyll-cache/
 .jekyll-metadata
 .sass-cache/
+_config_env.yml

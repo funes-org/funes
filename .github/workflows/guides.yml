@@ -34,7 +34,11 @@ jobs:
         run: cd guides && bundle install
 
       - name: Build guides site
-        run: cd guides && bundle exec jekyll build
+        run: |
+          echo "mixpanel_token: \"$MIXPANEL_TOKEN\"" > guides/_config_env.yml
+          cd guides && bundle exec jekyll build --config _config.yml,_config_env.yml
+        env:
+          MIXPANEL_TOKEN: ${{ secrets.MIXPANEL_TOKEN }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

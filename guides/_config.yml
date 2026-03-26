@@ -15,7 +15,10 @@ nav_external_links:
   - title: API Reference
     url: https://rubydoc.info/gems/funes-rails
 
+mixpanel_token: ""
+
 exclude:
   - Gemfile
   - Gemfile.lock
   - README.md
+  - _config_env.yml
