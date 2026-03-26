@@ -23,8 +23,10 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "minitest", "< 5.26"
   spec.add_development_dependency "database_cleaner-active_record"
   spec.add_development_dependency "puma"
+  spec.add_development_dependency "redcarpet"
   spec.add_development_dependency "rubocop-rails-omakase"
   spec.add_development_dependency "sqlite3"
+  spec.add_development_dependency "yard"
   spec.add_development_dependency "appraisal"
   spec.add_development_dependency "simplecov"
 end
