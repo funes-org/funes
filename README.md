@@ -6,9 +6,6 @@ By distilling the mechanics of event sourcing into just three core concepts — 
 
 Unlike traditional event sourcing frameworks that require a total shift in how you build, Funes is designed for **progressive adoption**. It is a _"good neighbor"_ that coexists seamlessly with your existing ActiveRecord models and standard controllers. You can use Funes for a single mission-critical feature — like a single complex state machine — while keeping the rest of your app in "plain old Rails."
 
-> [!WARNING]
-> **Not Production Ready:** Funes is currently under active development and is not yet ready for production use. The API may change without notice, and features may be incomplete or unstable. Use at your own risk in development and testing environments only.
-
 > Named after Funes the Memorious, the Borges character who could forget nothing, this framework embodies the principle that in some systems, remembering everything matters.
 
 ## Installation
