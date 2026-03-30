@@ -42,6 +42,36 @@ Funes uses optimistic concurrency control. Each event in a stream gets an increm
 
 If two processes try to append to the same stream simultaneously, one succeeds and the other gets a validation error — no locks, no blocking.
 
+## Three-Tier Consistency Model
+
+Funes gives you fine-grained control over when and how projections run:
+
+| Tier                      | When it runs                 | Use case                                        |
+|:--------------------------|:-----------------------------|:------------------------------------------------|
+| Consistency Projection    | Before event is persisted    | Validate business rules against resulting state |
+| Transactional Projections | Same DB transaction as event | Critical read models needing strong consistency |
+| Async Projections         | Background job (ActiveJob)   | Reports, analytics, eventually consistent read models    |
+
+### Consistency projections
+
+* **Guard your invariants:** these run _before_ the event is saved to the log. If the resulting state (the "virtual projection") is invalid, the event is rejected and never persisted.
+* **Business logic validation:** This is where you prevent "impossible" states, such as shipping more inventory than is available or overdrawing a bank account.
+
+### Transactional projections
+
+* **Atomic updates:** these update your persistent read models (`ActiveRecord`) within the same database transaction as the event.
+* **Validation before persistence:** before upserting the materialization, Funes runs ActiveRecord validations on the materialization model. If the model is invalid, an `ActiveRecord::RecordInvalid` exception is raised, the transaction rolls back, and the event is not persisted.
+* **Fail-loud on errors:** if a projection fails with a database error (e.g., constraint violation) or a validation error, the transaction rolls back, the event is marked as not persisted (`persisted?` returns `false`), and the exception (`ActiveRecord::StatementInvalid` or `ActiveRecord::RecordInvalid`) propagates. This ensures bugs are immediately visible rather than silently hidden, while keeping the event in a consistent state for any rescue logic in your application.
+
+### Async projections
+
+* **Background processing:** these are offloaded to `ActiveJob`, ensuring that heavy computations don't slow down the write path.
+* **Native integration:** fully compliant with standard Rails job backends (`Sidekiq`, `Solid Queue`, etc.). You can pass standard `ActiveJob` options like `queue`, `wait`, or `wait_until`.
+* **Temporal control (`temporal_context`):** customize the temporal reference passed to the projection. The resolved value becomes the `at` parameter received by interpretation blocks. Note that this is independent from the `at:` argument of `EventStream#append` — that value sets the event's `occurred_at` (business time) and does not flow through to async projections.
+  * `:last_event_time` (Default): uses the **transaction time** (`created_at`) of the last event — i.e., when it was recorded in the database, not when the business event occurred (`occurred_at`).
+  * `:job_time`: uses the current time when the job executes.
+  * `Proc/Lambda`: allows for custom temporal logic (e.g., rounding to the `beginning_of_day`).
+
 ## Documentation
 
 Guides and full API documentation are available at [docs.funes.org](https://docs.funes.org).
