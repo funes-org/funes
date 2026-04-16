@@ -2,6 +2,8 @@
 
 An event sourcing meta-framework designed to provide a frictionless experience for RoR developers to build and operate systems where history is as important as the present. Built with the one-person framework philosophy in mind, it honors the Rails doctrine by providing deep **conceptual compression** over what is usually a complex architectural pattern.
 
+At its core is a declarative DSL that favors the **interpretation of events** over all the plumbing. You describe how each event affects state, and Funes handles persistence, ordering, concurrency, and materialization for you.
+
 By distilling the mechanics of event sourcing into just three core concepts — **Events**, **Streams**, and **Projections** — Funes handles the underlying complexity of persistence and state reconstruction for you. It feels like the Rails you already know, giving you the power of a permanent source of truth with the same ease of use as a standard ActiveRecord model.
 
 Unlike traditional event sourcing frameworks that require a total shift in how you build, Funes is designed for **progressive adoption**. It is a _"good neighbor"_ that coexists seamlessly with your existing ActiveRecord models and standard controllers. You can use Funes for a single mission-critical feature — like a single complex state machine — while keeping the rest of your app in "plain old Rails."
@@ -35,6 +37,31 @@ Funes bridges the gap between event sourcing theory and the Rails tools you alre
 - **Event Streams** — orchestrate writes, run double validation, and control when projections update (synchronously or via `ActiveJob`)
 
 For a full walkthrough of each concept, see the [guides](https://docs.funes.org).
+
+## The DSL
+
+At the heart of Funes is a declarative DSL designed so you spend your time on what matters — *interpreting events* — not on the plumbing that surrounds them.
+
+A projection reads like a description of your domain logic:
+
+```ruby
+class OutstandingBalanceProjection < Funes::Projection
+  materialization_model OutstandingBalance
+
+  interpretation_for Debt::Issued do |state, event, _at|
+    state.assign_attributes(outstanding_balance: event.amount)
+    state
+  end
+
+  interpretation_for Debt::PaymentReceived do |state, event, _at|
+    state.outstanding_balance -= event.principal_amount
+    state.last_payment_at = event.at
+    state
+  end
+end
+```
+
+There is no event-store wiring, no manual replay loop, no serializer configuration. You declare how each event affects state, and Funes takes care of persistence, ordering, concurrency, and materialization. The same DSL scales from a single in-memory validation to a fully persisted read model.
 
 ## Optimistic concurrency control
 
