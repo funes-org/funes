@@ -17,6 +17,16 @@ A frictionless event sourcing experience for Rails developers.
 
 Funes is designed to give RoR developers a frictionless experience building systems where history is as important as the present. Built with the one-person framework philosophy in mind, it honors the Rails doctrine by providing deep **conceptual compression** over what is usually a complex architectural pattern.
 
+At its core is a declarative DSL that favors the **interpretation of events** over all the plumbing. Instead of wiring up event stores, replay loops, and serializers, you describe how each event affects state — and Funes handles persistence, ordering, concurrency, and materialization for you:
+
+```ruby
+interpretation_for Debt::PaymentReceived do |state, event, _at|
+  state.outstanding_balance -= event.principal_amount
+  state.last_payment_at = event.at
+  state
+end
+```
+
 By distilling the mechanics of event sourcing into just three core concepts — **Events**, **Streams**, and **Projections** — Funes handles the underlying complexity of persistence and state reconstruction for you. It feels like the Rails you already know, giving you the power of a permanent source of truth with the same ease of use as a standard ActiveRecord model.
 
 Unlike traditional event sourcing frameworks that require a total shift in how you build, Funes is designed for **progressive adoption**. It coexists seamlessly with your existing ActiveRecord models and standard controllers. You can use Funes for a single mission-critical feature while keeping the rest of your app in plain Rails.
