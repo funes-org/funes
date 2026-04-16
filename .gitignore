@@ -13,3 +13,4 @@
 /.idea
 gemfiles/*.lock
 /coverage/
+/bench/tmp/

@@ -91,3 +91,32 @@ jobs:
         with:
           name: coverage-report
           path: coverage/
+
+  benchmark:
+    runs-on: ubuntu-latest
+    name: Performance benchmark
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Build benchmark image
+        run: docker build -f bench/Dockerfile.bench -t funes-bench .
+
+      - name: Run projection replay benchmark
+        run: |
+          mkdir -p bench/tmp
+          docker run --rm --cpus=1 --memory=512m funes-bench \
+            bin/rails runner bench/projection_replay.rb | tee bench/tmp/projection_replay.txt
+
+      - name: Run event append benchmark
+        run: |
+          docker run --rm --cpus=1 --memory=512m funes-bench \
+            bin/rails runner bench/event_append.rb | tee bench/tmp/event_append.txt
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: bench/tmp/*.txt

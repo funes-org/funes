@@ -29,4 +29,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "yard"
   spec.add_development_dependency "appraisal"
   spec.add_development_dependency "simplecov"
+  spec.add_development_dependency "benchmark-ips", "~> 2.14"
+  spec.add_development_dependency "stackprof", "~> 0.2"
 end
