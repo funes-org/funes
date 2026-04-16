@@ -6,6 +6,7 @@ AllCops:
   Exclude:
     - 'db/schema.rb'
     - 'test/dummy/db/schema.rb'
+    - 'bench/**/*'
 
 # Overwrite or add rules to create your own house style
 #

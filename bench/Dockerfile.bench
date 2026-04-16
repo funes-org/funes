@@ -1,0 +1,44 @@
+# syntax=docker/dockerfile:1
+#
+# Benchmark image -- RAILS_ENV=test, all dev/test gems included, no Puma.
+# Uses fixed --cpus and --memory at runtime to produce reproducible absolute numbers.
+#
+# Build:
+#   docker build -f bench/Dockerfile.bench -t funes-bench .
+#
+# Run (reproducible absolute numbers):
+#   docker run --rm --cpus=1 --memory=512m funes-bench \
+#     bin/rails runner bench/projection_replay.rb
+#
+#   docker run --rm --cpus=1 --memory=512m funes-bench \
+#     bin/rails runner bench/event_append.rb
+#
+#   docker run --rm --cpus=1 --memory=512m \
+#     -v "$(pwd)/bench/tmp:/funes/bench/tmp" funes-bench \
+#     bin/rails runner bench/profile_replay.rb
+
+ARG RUBY_VERSION=3.4
+FROM docker.io/library/ruby:$RUBY_VERSION-slim
+
+WORKDIR /funes
+
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y \
+      build-essential git libyaml-dev pkg-config sqlite3 libsqlite3-dev && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
+ENV RAILS_ENV="test" \
+    FUNES_BENCH="1" \
+    BUNDLE_PATH="/usr/local/bundle"
+
+COPY Gemfile Gemfile.lock funes.gemspec ./
+COPY lib/funes/version.rb lib/funes/version.rb
+
+RUN bundle install
+
+COPY . .
+
+COPY bench/docker-entrypoint.sh /usr/local/bin/docker-entrypoint
+RUN chmod +x /usr/local/bin/docker-entrypoint
+
+ENTRYPOINT ["docker-entrypoint"]
