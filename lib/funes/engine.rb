@@ -9,7 +9,7 @@ module Funes
     initializer "funes.autoload", before: :set_autoload_paths do |app|
       engine_root = config.root
 
-      %w[models event_streams projections helpers].each do |dir|
+      %w[models event_streams projections helpers serializers].each do |dir|
         path = engine_root.join("app", dir)
         app.config.autoload_paths << path
         app.config.eager_load_paths << path
@@ -20,6 +20,8 @@ module Funes
       Funes::EventMetainformation.setup_attributes!
 
       Funes::Event.filter_attributes = Rails.application.config.filter_parameters
+
+      Rails.application.config.active_job.custom_serializers << Funes::EventStreamSerializer
     end
   end
 end
