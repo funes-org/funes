@@ -340,7 +340,7 @@ module Funes
     private
       def run_transactional_projections
         transactional_projections.each do |projection_class|
-          Funes::PersistProjectionJob.perform_now(@idx, projection_class, last_event_creation_date,
+          Funes::PersistProjectionJob.perform_now(self, projection_class, last_event_creation_date,
                                                   last_event_occurrence_date)
         end
       end
@@ -349,7 +349,7 @@ module Funes
         async_projections.each do |projection|
           Funes::PersistProjectionJob
             .set(projection[:options])
-            .perform_later(@idx, projection[:class], nil,
+            .perform_later(self, projection[:class], nil,
                            resolve_temporal_context(projection[:temporal_context]))
         end
       end

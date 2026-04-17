@@ -24,7 +24,8 @@ class PersistProjectionJobTest < ActiveSupport::TestCase
     end
 
     describe "materialization and persistence when the event stream has a single event" do
-      before { Funes::PersistProjectionJob.perform_now(idx, Examples::Deposit::SnapshotProjection) }
+      before { Funes::PersistProjectionJob.perform_now(Funes::EventStream.for(idx),
+                                                       Examples::Deposit::SnapshotProjection) }
 
       it "persists the projection" do
         assert Examples::Deposit::Snapshot.exists?(idx)
@@ -40,7 +41,7 @@ class PersistProjectionJobTest < ActiveSupport::TestCase
         Funes::EventEntry.create!(klass: "Examples::DepositEvents::Withdrawn", idx: idx, version: 2,
                                   props: { amount: 50, effective_date: Date.today }, occurred_at: Time.current)
 
-        Funes::PersistProjectionJob.perform_now(idx, Examples::Deposit::SnapshotProjection)
+        Funes::PersistProjectionJob.perform_now(Funes::EventStream.for(idx), Examples::Deposit::SnapshotProjection)
       end
 
       it "keeps a single persisted projection" do
@@ -54,7 +55,7 @@ class PersistProjectionJobTest < ActiveSupport::TestCase
 
     describe "materialization and persistence when there are materializations previously persisted" do
       before do
-        Funes::PersistProjectionJob.perform_now(idx, Examples::Deposit::SnapshotProjection)
+        Funes::PersistProjectionJob.perform_now(Funes::EventStream.for(idx), Examples::Deposit::SnapshotProjection)
       end
 
       test "the previous materialization really is in the database" do
@@ -64,7 +65,7 @@ class PersistProjectionJobTest < ActiveSupport::TestCase
       it "updates the previous materialization with the updated balance" do
         Funes::EventEntry.create!(klass: "Examples::DepositEvents::Withdrawn", idx: idx, version: 2,
                                   props: { amount: 50, effective_date: Date.today }, occurred_at: Time.current)
-        Funes::PersistProjectionJob.perform_now(idx, Examples::Deposit::SnapshotProjection)
+        Funes::PersistProjectionJob.perform_now(Funes::EventStream.for(idx), Examples::Deposit::SnapshotProjection)
 
         assert_equal 50, Examples::Deposit::Snapshot.find(idx).balance
       end
@@ -79,7 +80,8 @@ class PersistProjectionJobTest < ActiveSupport::TestCase
       end
 
       describe "`as_of` information handling" do
-        before { Funes::PersistProjectionJob.perform_now(idx, Examples::Deposit::SnapshotProjection,
+        before { Funes::PersistProjectionJob.perform_now(Funes::EventStream.for(idx),
+                                                         Examples::Deposit::SnapshotProjection,
                                                          Time.current + 5.days) }
 
         it "computes the events until the `as_of` point in time" do
@@ -88,7 +90,8 @@ class PersistProjectionJobTest < ActiveSupport::TestCase
       end
 
       describe "`at` information handling" do
-        before { Funes::PersistProjectionJob.perform_now(idx, Examples::Deposit::SnapshotProjection,
+        before { Funes::PersistProjectionJob.perform_now(Funes::EventStream.for(idx),
+                                                         Examples::Deposit::SnapshotProjection,
                                                          nil, Time.current + 5.days) }
 
         it "computes the events until the `at` point in time" do
