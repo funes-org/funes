@@ -105,8 +105,8 @@ Guides and full API documentation are available at [docs.funes.org](https://docs
 
 ## Compatibility
 
-- **Ruby:** 3.1, 3.2, 3.3, 3.4
-- **Rails:** 7.1, 7.2, 8.0, 8.1
+- **Ruby:** 3.1+
+- **Rails:** 7.1+
 
 Rails 8.0+ requires Ruby 3.2 or higher.
 
