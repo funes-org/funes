@@ -20,7 +20,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency "rails", ">= 7.1"
 
   # Development dependencies
-  spec.add_development_dependency "minitest", "< 5.26"
   spec.add_development_dependency "database_cleaner-active_record"
   spec.add_development_dependency "puma"
   spec.add_development_dependency "redcarpet"
