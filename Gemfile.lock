@@ -124,7 +124,7 @@ GEM
     marcel (1.0.4)
     mini_mime (1.1.5)
     mini_portile2 (2.8.9)
-    minitest (5.12.0)
+    minitest (5.27.0)
     net-imap (0.5.9)
       date
       net-protocol
@@ -263,7 +263,7 @@ DEPENDENCIES
   benchmark-ips (~> 2.14)
   database_cleaner-active_record
   funes-rails!
-  minitest (< 5.26)
+  minitest (>= 5.26, < 6)
   puma
   redcarpet
   rubocop-rails-omakase
