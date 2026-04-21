@@ -2,7 +2,7 @@ PATH
   remote: .
   specs:
     funes-rails (0.2.1)
-      rails (>= 7.1)
+      rails (>= 7.2)
 
 GEM
   remote: https://rubygems.org/
@@ -255,8 +255,7 @@ GEM
     zeitwerk (2.7.3)
 
 PLATFORMS
-  arm64-darwin
-  x86_64-linux
+  ruby
 
 DEPENDENCIES
   appraisal
