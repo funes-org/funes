@@ -298,6 +298,42 @@ class BitemporalTest < ActiveSupport::TestCase
     end
   end
 
+  describe "projected_with raises when no events remain" do
+    it "raises ActiveRecord::RecordNotFound when the stream has no events" do
+      idx = "salary-empty-stream-#{SecureRandom.uuid}"
+      stream = stream_without_actual_time.for(idx)
+
+      assert_raises ActiveRecord::RecordNotFound do
+        stream.projected_with(salary_projection)
+      end
+    end
+
+    it "raises ActiveRecord::RecordNotFound when as_of excludes every event" do
+      idx = "salary-empty-as-of-#{SecureRandom.uuid}"
+
+      travel_to Time.new(2025, 3, 1, 12, 0, 0) do
+        stream_without_actual_time.for(idx).append(SalarySet.new(amount: 6000), at: Time.new(2025, 3, 1))
+      end
+
+      stream = stream_without_actual_time.for(idx)
+
+      assert_raises ActiveRecord::RecordNotFound do
+        stream.projected_with(salary_projection, as_of: Time.new(2025, 1, 1))
+      end
+    end
+
+    it "raises ActiveRecord::RecordNotFound when at excludes every event" do
+      idx = "salary-empty-at-#{SecureRandom.uuid}"
+      stream = stream_without_actual_time.for(idx)
+
+      stream.append(SalarySet.new(amount: 6000), at: Time.new(2025, 3, 1))
+
+      assert_raises ActiveRecord::RecordNotFound do
+        stream_without_actual_time.for(idx).projected_with(salary_projection, at: Time.new(2025, 1, 1))
+      end
+    end
+  end
+
   describe "version assignment with retroactive events" do
     it "assigns correct incremental versions when events are appended out of occurred_at order" do
       idx = "salary-version-retroactive-#{SecureRandom.uuid}"

@@ -297,6 +297,9 @@ module Funes
     # @param [Time, nil] at Optional actual-time reference. When provided, only events with
     #   `occurred_at <= at` are included in the projection.
     # @return [Object] The materialized state as defined by the projection's materialization model.
+    # @raise [ActiveRecord::RecordNotFound] When no events remain after applying the
+    #   `as_of` and `at` filters. Lets controllers surface a 404 via Rails' default
+    #   exception handling, matching the behavior of `Model.find(id)` on a missing record.
     #
     # @example Project current state
     #   stream = OrderEventStream.for("order-123")
@@ -316,6 +319,7 @@ module Funes
     def projected_with(projection_class, as_of: nil, at: nil)
       source_events = as_of ? filter_by_record_time(events, as_of) : events
       target_events = at ? filter_by_actual_time(source_events, at) : source_events
+      raise ActiveRecord::RecordNotFound, "No events for #{self.class.name} #{idx.inspect}" if target_events.empty?
       projection_class.process_events(target_events, at: at)
     end
 
