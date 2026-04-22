@@ -90,6 +90,25 @@ Funes gives you fine-grained control over when and how projections run:
 * **Validation before persistence:** before upserting the materialization, Funes runs ActiveRecord validations on the materialization model. If the model is invalid, an `ActiveRecord::RecordInvalid` exception is raised, the transaction rolls back, and the event is not persisted.
 * **Fail-loud on errors:** if a projection fails with a database error (e.g., constraint violation) or a validation error, the transaction rolls back, the event is marked as not persisted (`persisted?` returns `false`), and the exception (`ActiveRecord::StatementInvalid` or `ActiveRecord::RecordInvalid`) propagates. This ensures bugs are immediately visible rather than silently hidden, while keeping the event in a consistent state for any rescue logic in your application.
 
+### Host-managed transactions with `append!`
+
+When you need to wrap `append` inside your own `ActiveRecord::Base.transaction` — for example, to keep a sibling update in lockstep with the event, or to append to two streams atomically — use `append!`. It mirrors Rails' `save` / `save!` pair: on any failure it raises `ActiveRecord::RecordInvalid`, which rolls back the enclosing transaction.
+
+```ruby
+event = Order::Placed.new(total: 99.99)
+begin
+  ActiveRecord::Base.transaction do
+    customer.update!(last_ordered_at: Time.current)
+    OrderEventStream.for(order_id).append!(event)
+  end
+rescue ActiveRecord::RecordInvalid
+  event.persisted?  # => false
+  event.errors.any? # => true
+end
+```
+
+The failed event stays queryable after the rescue (`persisted?`, `errors`), just like a record that failed `save!`. Async projections are only enqueued once the outer transaction commits, so a rolled-back transaction never schedules a job.
+
 ### Async projections
 
 * **Background processing:** these are offloaded to `ActiveJob`, ensuring that heavy computations don't slow down the write path.
@@ -106,7 +125,7 @@ Guides and full API documentation are available at [docs.funes.org](https://docs
 ## Compatibility
 
 - **Ruby:** 3.1+
-- **Rails:** 7.1+
+- **Rails:** 7.2+
 
 Rails 8.0+ requires Ruby 3.2 or higher.
 

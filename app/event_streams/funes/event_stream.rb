@@ -230,33 +230,72 @@ module Funes
     #     # Race condition detected, retry logic here
     #   end
     def append(new_event, at: nil)
-      return new_event unless new_event.valid?
+      do_append(new_event, at: at, raise_on_failure: false)
+    end
 
-      occurred_at = resolve_proper_occurred_at(new_event, at)
-
-      if consistency_projection.present?
-        materialization = compute_projection_with_new_event(consistency_projection, new_event, occurred_at)
-        transfer_interpretation_errors(new_event)
-        return new_event if materialization.invalid? || new_event.invalid?
-      end
-
-      ActiveRecord::Base.transaction do
-        begin
-          @instance_new_events << new_event.persist!(@idx, incremented_version, at: occurred_at)
-          run_transactional_projections
-        rescue ActiveRecord::RecordNotUnique
-          new_event._event_entry = nil
-          new_event.errors.add(:base, I18n.t("funes.events.racing_condition_on_insert"))
-          raise ActiveRecord::Rollback
-        rescue ActiveRecord::StatementInvalid, ActiveRecord::RecordInvalid => e
-          new_event._event_entry = nil
-          raise e
-        end
-      end
-
-      schedule_async_projections unless new_event.errors.any?
-
-      new_event
+    # Append a new event to the stream, raising on any failure.
+    #
+    # Behaves like {#append}, but raises `ActiveRecord::RecordInvalid` whenever the event cannot be
+    # persisted — mirroring the relationship between `ActiveRecord::Base#save` and `#save!`. Because
+    # a real exception is raised, any enclosing `ActiveRecord::Base.transaction` block rolls back,
+    # which is what you want when you need host-managed transactional control around `append`.
+    #
+    # The failed event is always queryable after the rescue: `event.persisted?` returns false and
+    # `event.errors` is populated (for event-level failures such as validation, consistency
+    # rejection, or version conflict).
+    #
+    # Failure modes:
+    # - Event's own validation fails → raises `ActiveRecord::RecordInvalid` with the event as `record`.
+    # - Consistency projection rejects the event → raises `ActiveRecord::RecordInvalid` with the
+    #   event as `record` (state / interpretation errors transferred to the event).
+    # - Version conflict (race condition on insert) → raises `ActiveRecord::RecordInvalid` with the
+    #   event as `record` and a racing-condition message on `event.errors[:base]`.
+    # - A transactional projection's persistence fails → the original
+    #   `ActiveRecord::StatementInvalid` / `ActiveRecord::RecordInvalid` is re-raised untouched (its
+    #   `record` is the projection's materialization model, not the event). `event.persisted?` is
+    #   still false after the rescue.
+    #
+    # Async projections are only enqueued when `append!` returns successfully. When `append!` is
+    # nested inside a user-opened `ActiveRecord::Base.transaction` that later rolls back, Rails'
+    # `enqueue_after_transaction_commit` discards the deferred enqueue so no job runs.
+    #
+    # @param [Funes::Event] new_event The event to append to the stream.
+    # @param [Time, Date, nil] at See {#append}.
+    # @return [Funes::Event] The persisted event.
+    # @raise [ActiveRecord::RecordInvalid] When the event cannot be persisted. `e.record` is the
+    #   failed event (for event-level failures) or a projection materialization model (for
+    #   projection validation failures).
+    # @raise [ActiveRecord::StatementInvalid] When a transactional projection fails with a database
+    #   constraint violation.
+    # @raise [Funes::ConflictingActualTimeError] See {#append}.
+    # @raise [Funes::MissingActualTimeAttributeError] See {#append}.
+    #
+    # @example Host-managed transaction with a sibling AR update
+    #   event = SomeEvent.new(some: "value")
+    #   begin
+    #     ActiveRecord::Base.transaction do
+    #       some_model.update!(some: "value")
+    #       SomeEventStream.for(stream_id).append!(event)
+    #     end
+    #   rescue ActiveRecord::RecordInvalid
+    #     event.persisted?  # => false
+    #     event.errors.any? # => true
+    #   end
+    #
+    # @example Two appends in a single transaction — either both commit or neither does
+    #   event_1 = SomeEvent.new(some: "value")
+    #   event_2 = OtherEvent.new(some: "value")
+    #   begin
+    #     ActiveRecord::Base.transaction do
+    #       SomeEventStream.for(stream_id).append!(event_1)
+    #       OtherEventStream.for(other_stream_id).append!(event_2)
+    #     end
+    #   rescue ActiveRecord::RecordInvalid
+    #     event_1.persisted? # => false
+    #     event_2.persisted? # => false
+    #   end
+    def append!(new_event, at: nil)
+      do_append(new_event, at: at, raise_on_failure: true)
     end
 
     # @!visibility private
@@ -338,6 +377,46 @@ module Funes
     end
 
     private
+      def do_append(new_event, at:, raise_on_failure:)
+        unless new_event.valid?
+          raise ActiveRecord::RecordInvalid.new(new_event) if raise_on_failure
+          return new_event
+        end
+
+        occurred_at = resolve_proper_occurred_at(new_event, at)
+
+        if consistency_projection.present?
+          materialization = compute_projection_with_new_event(consistency_projection, new_event, occurred_at)
+          transfer_interpretation_errors(new_event)
+          if materialization.invalid? || new_event.invalid?
+            raise ActiveRecord::RecordInvalid.new(new_event) if raise_on_failure
+            return new_event
+          end
+        end
+
+        ActiveRecord::Base.transaction do
+          begin
+            @instance_new_events << new_event.persist!(@idx, incremented_version, at: occurred_at)
+            ActiveRecord::Base.connection.current_transaction.after_rollback do
+              new_event._event_entry = nil
+            end
+            run_transactional_projections
+          rescue ActiveRecord::RecordNotUnique
+            new_event._event_entry = nil
+            new_event.errors.add(:base, I18n.t("funes.events.racing_condition_on_insert"))
+            raise ActiveRecord::RecordInvalid.new(new_event) if raise_on_failure
+            raise ActiveRecord::Rollback
+          rescue ActiveRecord::StatementInvalid, ActiveRecord::RecordInvalid => e
+            new_event._event_entry = nil
+            raise e
+          end
+        end
+
+        schedule_async_projections unless new_event.errors.any?
+
+        new_event
+      end
+
       def run_transactional_projections
         transactional_projections.each do |projection_class|
           Funes::PersistProjectionJob.perform_now(self, projection_class, last_event_creation_date,
