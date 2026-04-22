@@ -83,6 +83,32 @@ stream.projected_with(SalaryProjection, as_of: Time.new(2025, 3, 1), at: Time.ne
 
 This is invaluable for audits, corrections, and compliance scenarios where you need to reconstruct the exact state a decision was made from.
 
+## When there is nothing to project
+
+`projected_with` mirrors `ActiveRecord#find`: if there are no events to replay, it raises `ActiveRecord::RecordNotFound`. This happens whenever the stream is unknown or empty, and also whenever `as_of:` or `at:` narrows the window to zero events.
+
+```ruby
+SalaryEventStream.for("unknown-id").projected_with(SalaryProjection)
+# => raises ActiveRecord::RecordNotFound
+
+stream = SalaryEventStream.for("sally-123")
+stream.projected_with(SalaryProjection, at: Time.new(1999, 1, 1))
+# => raises ActiveRecord::RecordNotFound if every event occurred after Jan 1, 1999
+```
+
+The payoff is in your controllers: because Rails already maps `ActiveRecord::RecordNotFound` to a 404 response, a `show` action that calls `projected_with` renders the host app's 404 page without any extra rescue code.
+
+```ruby
+# app/controllers/salaries_controller.rb
+class SalariesController < ApplicationController
+  def show
+    @salary = SalaryEventStream.for(params[:id]).projected_with(SalaryProjection)
+  end
+end
+```
+
+Funes also writes a `Rails.logger.info` line before raising, so your logs record which stream, projection, and filter values led to the empty result.
+
 ## Temporal context in projections
 
 The temporal reference is not uniform across all interpretation hooks — it depends on which hook you are in.
