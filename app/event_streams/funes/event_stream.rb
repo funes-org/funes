@@ -330,12 +330,19 @@ module Funes
     # include those where `occurred_at <= at` before projection. When `as_of:` is provided,
     # it overrides the stream's record-time boundary, filtering events in Ruby by `created_at`.
     #
+    # Mirrors `ActiveRecord::Base.find`: if there are no events to replay — either because the
+    # stream has no events at all or because `as_of:` / `at:` filtering leaves none in scope —
+    # raises {ActiveRecord::RecordNotFound}. In a Rails controller, this lets the host app's
+    # middleware render a 404 automatically, without any rescue wiring.
+    #
     # @param projection_class [Class<Funes::Projection>] The projection class to use.
     # @param [Time, nil] as_of Optional record-time override. When provided, only events with
     #   `created_at <= as_of` are considered, overriding the stream's own `@as_of`.
     # @param [Time, nil] at Optional actual-time reference. When provided, only events with
     #   `occurred_at <= at` are included in the projection.
     # @return [Object] The materialized state as defined by the projection's materialization model.
+    # @raise [ActiveRecord::RecordNotFound] when the filtered event list is empty — either
+    #   because the stream has no events or because `as_of:` / `at:` excludes them all.
     #
     # @example Project current state
     #   stream = OrderEventStream.for("order-123")
@@ -352,9 +359,36 @@ module Funes
     #   snapshot = stream.projected_with(SalaryProjection,
     #                                    as_of: Time.new(2025, 3, 1),
     #                                    at: Time.new(2025, 2, 20))
+    #
+    # @example Automatic 404 in a Rails controller
+    #   class OrdersController < ApplicationController
+    #     def show
+    #       stream = OrderEventStream.for(params[:id])
+    #       @order = stream.projected_with(OrderSummaryProjection)
+    #     end
+    #   end
+    #   # If no events exist for params[:id], Rails renders its 404 page automatically.
     def projected_with(projection_class, as_of: nil, at: nil)
       source_events = as_of ? filter_by_record_time(events, as_of) : events
       target_events = at ? filter_by_actual_time(source_events, at) : source_events
+
+      if target_events.empty?
+        materialization_model = projection_class.instance_variable_get(:@materialization_model)
+        model_name = materialization_model&.name
+        Rails.logger.info(
+          "[Funes] projected_with found no events for " \
+          "#{self.class.name} idx=#{idx.inspect} " \
+          "projection=#{projection_class.name} " \
+          "as_of=#{as_of.inspect} at=#{at.inspect}"
+        )
+        raise ActiveRecord::RecordNotFound.new(
+          "Couldn't find #{model_name} for #{self.class.name} #{idx.inspect}",
+          model_name,
+          "idx",
+          idx
+        )
+      end
+
       projection_class.process_events(target_events, at: at)
     end
 

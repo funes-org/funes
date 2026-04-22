@@ -125,6 +125,8 @@ end
 
 > **Note:** The `at` parameter in both hooks is the **query's temporal reference** — what you passed as `at:` to `projected_with`. This is different from the `at` inside `interpretation_for` blocks, which is each event's own `occurred_at`. See the [Temporal Queries](../temporal-queries) guide for the full picture.
 
+> **Note:** When `projected_with` has no events to replay — the stream is unknown, or the temporal filters exclude every event — it raises `ActiveRecord::RecordNotFound`, so controllers that use it get a 404 automatically. See [When there is nothing to project](../temporal-queries#when-there-is-nothing-to-project).
+
 ## Strict mode
 
 By default, a projection silently ignores events it has no `interpretation_for`. If you want Funes to raise an error instead — useful for critical projections where a missing handler is a bug — enable strict mode:
