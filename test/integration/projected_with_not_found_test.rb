@@ -31,4 +31,28 @@ class ProjectedWithNotFoundTest < ActionDispatch::IntegrationTest
     assert_equal 200, response.status
     assert_match(/\Abalance=5000(\.0+)?\z/, response.body)
   end
+
+  test "returns 404 when the stream has events but at: excludes every one of them" do
+    idx = "deposit-at-excludes-#{SecureRandom.uuid}"
+    Examples::DepositEventStream
+      .for(idx)
+      .append(Examples::DepositEvents::Created.new(effective_date: Time.new(2025, 4, 1), value: 5_000))
+
+    get "/examples/deposit_snapshots/#{idx}", params: { at: Time.new(2025, 1, 1).iso8601 }
+
+    assert_equal 404, response.status
+  end
+
+  test "returns 404 when the stream has events but as_of: excludes every one of them" do
+    idx = "deposit-as-of-excludes-#{SecureRandom.uuid}"
+    travel_to Time.new(2025, 4, 1, 12, 0, 0) do
+      Examples::DepositEventStream
+        .for(idx)
+        .append(Examples::DepositEvents::Created.new(effective_date: Time.new(2025, 4, 1), value: 5_000))
+    end
+
+    get "/examples/deposit_snapshots/#{idx}", params: { as_of: Time.new(2025, 1, 1).iso8601 }
+
+    assert_equal 404, response.status
+  end
 end
