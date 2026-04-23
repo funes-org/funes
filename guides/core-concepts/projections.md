@@ -78,6 +78,8 @@ $ bin/rails db:migrate
 
 > Funes uses `upsert` on `idx` to keep the table in sync as new events arrive.
 
+> **Note:** If you need one row per version of the state rather than a single row per `idx`, see [Per-change Projections](per-change-projections).
+
 Once the migration is in place, define the ActiveRecord model and a projection that uses it:
 
 ```ruby
