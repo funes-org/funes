@@ -10,7 +10,14 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_03_11_190825) do
+ActiveRecord::Schema[7.1].define(version: 2026_04_23_000001) do
+  create_table "deposit_histories", primary_key: [ "idx", "version" ], force: :cascade do |t|
+    t.string "idx", null: false
+    t.string "version", null: false
+    t.decimal "balance", null: false
+    t.index [ "idx", "version" ], name: "index_deposit_histories_on_idx_and_version", unique: true
+  end
+
   create_table "deposit_last_activities", id: false, force: :cascade do |t|
     t.string "idx", null: false
     t.integer "activity_type", default: 0, null: false

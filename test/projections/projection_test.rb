@@ -196,8 +196,8 @@ class ProjectionTest < ActiveSupport::TestCase
         end
 
 
-        it "calls process_events but does not call persist_based_on! to persist it in the database" do
-          process_events_called = false
+        it "computes the versioned states but does not call persist_based_on! to persist it in the database" do
+          compute_called = false
           persist_called = false
 
           spy_class = Class.new(Funes::Projection) do
@@ -205,13 +205,13 @@ class ProjectionTest < ActiveSupport::TestCase
                                        .instance_variable_get(:@materialization_model)
             @interpretations = Examples::Deposit::ConsistencyProjection.instance_variable_get(:@interpretations)
 
-            define_method(:process_events) { |*a, **kw| process_events_called = true; super(*a, **kw) }
+            define_method(:compute_versioned_states) { |*a, **kw| compute_called = true; super(*a, **kw) }
             define_method(:persist_based_on!) { |*| persist_called = true }
           end
 
           spy_class.materialize!(events_coll, "some-id")
 
-          assert process_events_called
+          assert compute_called
           refute persist_called
         end
       end
