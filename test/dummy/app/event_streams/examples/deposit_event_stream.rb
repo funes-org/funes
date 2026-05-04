@@ -5,5 +5,7 @@ module Examples
 
     add_transactional_projection Examples::Deposit::SnapshotProjection
     add_transactional_projection Examples::Deposit::LastActivityProjection
+
+    add_async_projection Examples::Deposit::JsonSnapshotProjection
   end
 end

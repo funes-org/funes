@@ -253,4 +253,94 @@ class ProjectionTest < ActiveSupport::TestCase
       end
     end
   end
+
+  describe "persistence management when persist_with is declared" do
+    let(:today) { Date.today }
+    let(:events_coll) { [ Examples::DepositEvents::Created.new(value: 100, effective_date: today) ] }
+
+    class SpyMaterializationModel
+      include ActiveModel::Model
+      include ActiveModel::Attributes
+      include ActiveModel::AttributeAssignment
+
+      class << self
+        attr_accessor :last_instance
+      end
+
+      attribute :idx, :string
+      attribute :original_value, :decimal
+      attribute :balance, :decimal
+      attribute :status, :string
+      attribute :created_at, :date
+
+      attr_accessor :persist_calls, :persist_invalid_attempt
+
+      def initialize(*)
+        super
+        @persist_calls = 0
+        @persist_invalid_attempt = false
+        self.class.last_instance = self
+      end
+
+      def persist!
+        @persist_calls += 1
+        true
+      end
+    end
+
+    class InvalidSpyMaterializationModel < SpyMaterializationModel
+      validates :balance, numericality: { greater_than: 1_000_000 }
+    end
+
+    class SpyProjection < Funes::Projection
+      materialization_model SpyMaterializationModel
+      persist_with :persist!
+
+      interpretation_for Examples::DepositEvents::Created do |state, event, _at|
+        state.assign_attributes(original_value: event.value, balance: event.value, status: "active")
+        state
+      end
+    end
+
+    class InvalidSpyProjection < Funes::Projection
+      materialization_model InvalidSpyMaterializationModel
+      persist_with :persist!
+
+      interpretation_for Examples::DepositEvents::Created do |state, event, _at|
+        state.assign_attributes(original_value: event.value, balance: event.value, status: "active")
+        state
+      end
+    end
+
+    it "invokes the named instance method on the state" do
+      SpyMaterializationModel.last_instance = nil
+      returned = SpyProjection.materialize!(events_coll, "some-id", at: today)
+
+      assert_equal 1, returned.persist_calls
+      assert_equal "some-id", returned.idx
+    end
+
+    it "returns the state itself rather than a fresh model instance" do
+      SpyMaterializationModel.last_instance = nil
+      returned = SpyProjection.materialize!(events_coll, "some-id", at: today)
+
+      assert_same SpyMaterializationModel.last_instance, returned
+    end
+
+    it "raises ActiveRecord::RecordInvalid before invoking the persist method when state is invalid" do
+      assert_raises ActiveRecord::RecordInvalid do
+        InvalidSpyProjection.materialize!(events_coll, "some-id", at: today)
+      end
+      refute_nil InvalidSpyMaterializationModel.last_instance
+      assert_equal 0, InvalidSpyMaterializationModel.last_instance.persist_calls
+    end
+
+    it "treats a non-ActiveRecord materialization model as persistable when persist_with is set" do
+      SpyMaterializationModel.last_instance = nil
+      SpyProjection.materialize!(events_coll, "some-id", at: today)
+
+      refute SpyMaterializationModel <= ActiveRecord::Base
+      assert_equal 1, SpyMaterializationModel.last_instance.persist_calls
+    end
+  end
 end

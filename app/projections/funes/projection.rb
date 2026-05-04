@@ -122,6 +122,34 @@ module Funes
         @materialization_model = active_record_or_model
       end
 
+      # Registers an instance method on the materialization model that owns the persistence step,
+      # replacing the framework's default upsert.
+      #
+      # When set, the named method is invoked on the in-memory state after all interpretations have
+      # run and +idx+ has been assigned. The method takes no arguments and is expected to raise on
+      # failure. The framework still calls +state.valid?+ and raises +ActiveRecord::RecordInvalid+
+      # before delegating, so the custom method only runs against valid state.
+      #
+      # Declaring +persist_with+ also lifts the requirement that the materialization model be an
+      # +ActiveRecord::Base+ subclass: a plain +ActiveModel+ class is enough as long as it exposes
+      # +assign_attributes+, +attributes+, +valid?+ and +errors+.
+      #
+      # *Idempotency contract:* re-running the projection with the same events must produce the same
+      # external state. The default upsert satisfies this naturally; custom implementations must
+      # ensure their writes are idempotent on +idx+.
+      #
+      # @param [Symbol] method_name The instance method on the materialization model that performs the write.
+      # @return [void]
+      #
+      # @example Persisting a projection to a JSON file
+      #   class YourProjection < Funes::Projection
+      #     materialization_model YourMaterializationModel
+      #     persist_with :save_to_object_storage!
+      #   end
+      def persist_with(method_name)
+        @persist_method = method_name
+      end
+
       # It changes the sensibility of the projection about events that it doesn't know how to interpret
       #
       # By default, a projection ignores events that it doesn't have interpretations for. This method informs the
@@ -142,7 +170,8 @@ module Funes
       def process_events(events_collection, at: nil, consistency: false)
         new(self.instance_variable_get(:@interpretations),
             self.instance_variable_get(:@materialization_model),
-            self.instance_variable_get(:@throws_on_unknown_events))
+            self.instance_variable_get(:@throws_on_unknown_events),
+            self.instance_variable_get(:@persist_method))
           .process_events(events_collection, at: at, consistency: consistency)
       end
 
@@ -150,13 +179,14 @@ module Funes
       def materialize!(events_collection, idx, at: nil)
         new(self.instance_variable_get(:@interpretations),
             self.instance_variable_get(:@materialization_model),
-            self.instance_variable_get(:@throws_on_unknown_events))
+            self.instance_variable_get(:@throws_on_unknown_events),
+            self.instance_variable_get(:@persist_method))
           .materialize!(events_collection, idx, at: at)
       end
     end
 
     # @!visibility private
-    def initialize(interpretations, materialization_model, throws_on_unknown_events)
+    def initialize(interpretations, materialization_model, throws_on_unknown_events, persist_method = nil)
       @interpretations = interpretations
       @materialization_model = materialization_model
       raise Funes::UnknownMaterializationModel,
@@ -164,6 +194,7 @@ module Funes
 
 
       @throws_on_unknown_events = throws_on_unknown_events
+      @persist_method = persist_method
     end
 
     # @!visibility private
@@ -191,13 +222,13 @@ module Funes
     # @!visibility private
     def materialize!(events_collection, idx, at: nil)
       state = process_events(events_collection, at: at)
-      materialized_model_instance = materialized_model_instance_based_on(state)
-      if materialization_model_is_persistable?
+      if persistable?
         state.assign_attributes(idx:)
         persist_based_on!(state)
+        return state if @persist_method
       end
 
-      materialized_model_instance
+      materialized_model_instance_based_on(state)
     end
 
     private
@@ -213,13 +244,19 @@ module Funes
         @materialization_model.new(state.attributes)
       end
 
-      def materialization_model_is_persistable?
-        @materialization_model.present? && @materialization_model <= ActiveRecord::Base
+      def persistable?
+        return false unless @materialization_model.present?
+        return true if @persist_method
+        @materialization_model <= ActiveRecord::Base
       end
 
       def persist_based_on!(state)
         raise ActiveRecord::RecordInvalid.new(state) unless state.valid?
-        @materialization_model.upsert(state.attributes, unique_by: :idx)
+        if @persist_method
+          state.public_send(@persist_method)
+        else
+          @materialization_model.upsert(state.attributes, unique_by: :idx)
+        end
       end
 
       def warn_about_ineffective_errors(event)
