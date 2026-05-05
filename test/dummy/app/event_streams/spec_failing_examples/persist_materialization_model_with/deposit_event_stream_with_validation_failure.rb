@@ -1,7 +1,7 @@
 module SpecFailingExamples::PersistMaterializationModelWith
   # A non-ActiveRecord materialization model that always fails validation when reached.
-  # `record_call!` would mutate process-local state if the projection ever delegated to it,
-  # so the tests can assert it was never invoked.
+  # `persist!` increments a class-level counter so the tests can assert it was never invoked
+  # when the framework's validation gate fires first.
   class FailingMaterializationModel
     include ActiveModel::Model
     include ActiveModel::Attributes
