@@ -6,7 +6,6 @@ module SpecFailingExamples::PersistMaterializationModelWith
   class FailingMaterializationModel
     include ActiveModel::Model
     include ActiveModel::Attributes
-    include ActiveModel::AttributeAssignment
 
     attribute :idx, :string
     attribute :balance, :decimal

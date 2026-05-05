@@ -2,7 +2,6 @@ module Examples::Deposit
   class Consistency
     include ActiveModel::Model
     include ActiveModel::Attributes
-    include ActiveModel::AttributeAssignment
 
     attribute :original_value, :decimal
     validates :original_value, presence: true, numericality: { greater_than: 0 }

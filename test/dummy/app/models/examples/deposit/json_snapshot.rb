@@ -5,7 +5,6 @@ module Examples::Deposit
   class JsonSnapshot
     include ActiveModel::Model
     include ActiveModel::Attributes
-    include ActiveModel::AttributeAssignment
 
     attribute :idx, :string
     attribute :original_value, :decimal

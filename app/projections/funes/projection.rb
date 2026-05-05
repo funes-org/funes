@@ -136,10 +136,6 @@ module Funes
       # materialization model be an +ActiveRecord::Base+ subclass: a plain +ActiveModel+ class is
       # enough as long as it exposes +assign_attributes+, +attributes+, +valid?+ and +errors+.
       #
-      # *Idempotency contract:* re-running the projection with the same events must produce the same
-      # external state. The default upsert satisfies this naturally; custom implementations must
-      # ensure their writes are idempotent on +idx+.
-      #
       # @param [Symbol] method_name The instance method on the materialization model that performs the write.
       # @return [void]
       #

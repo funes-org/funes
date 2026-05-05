@@ -261,7 +261,6 @@ class ProjectionTest < ActiveSupport::TestCase
     class SpyMaterializationModel
       include ActiveModel::Model
       include ActiveModel::Attributes
-      include ActiveModel::AttributeAssignment
 
       class << self
         attr_accessor :last_instance
