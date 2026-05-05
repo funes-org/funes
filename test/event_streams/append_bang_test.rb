@@ -142,6 +142,52 @@ class AppendBangTest < ActiveSupport::TestCase
     end
   end
 
+  describe "when a transactional projection using persist_materialization_model_with fails validation" do
+    let(:event) { Examples::DepositEvents::Created.new(value: 42, effective_date: Date.today) }
+    # Reference the event stream first so Zeitwerk loads the fixture file (which also defines the
+    # materialization model under the same namespace).
+    let(:failing_stream) { SpecFailingExamples::PersistMaterializationModelWith::DepositEventStreamWithValidationFailure }
+    let(:materialization_model) do
+      failing_stream # ensure the fixture file is loaded
+      SpecFailingExamples::PersistMaterializationModelWith::FailingMaterializationModel
+    end
+
+    before { materialization_model.persist_calls = 0 }
+
+    it "raises Funes::InvalidMaterializationState whose record is the failed materialization, not the event" do
+      assert_no_enqueued_jobs do
+        error = assert_raises(Funes::InvalidMaterializationState) do
+          failing_stream.for(idx).append!(event)
+        end
+
+        refute_same event, error.record
+        assert_kind_of materialization_model, error.record
+        refute event.persisted?
+        refute Funes::EventEntry.exists?(idx: idx)
+        assert_equal 0, materialization_model.persist_calls
+      end
+    end
+
+    it "rolls back sibling writes inside a host-managed ActiveRecord::Base.transaction" do
+      sibling_idx = "sibling-pmw-#{SecureRandom.uuid}"
+
+      assert_no_enqueued_jobs do
+        assert_raises(Funes::InvalidMaterializationState) do
+          ActiveRecord::Base.transaction do
+            Examples::Deposit::Snapshot.create!(idx: sibling_idx, created_at: Date.today,
+                                                original_value: 10, balance: 10)
+            failing_stream.for(idx).append!(event)
+          end
+        end
+      end
+
+      refute Examples::Deposit::Snapshot.exists?(sibling_idx), "sibling write must be rolled back"
+      refute Funes::EventEntry.exists?(idx: idx)
+      refute event.persisted?
+      assert_equal 0, materialization_model.persist_calls
+    end
+  end
+
   describe "when append! is wrapped in a user-opened ActiveRecord::Base.transaction" do
     let(:event) { Examples::DepositEvents::Created.new(value: 42, effective_date: Date.today) }
     let(:sibling_idx) { "sibling-#{SecureRandom.uuid}" }

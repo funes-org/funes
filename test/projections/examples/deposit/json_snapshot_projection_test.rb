@@ -64,13 +64,13 @@ module Examples::Deposit
     end
 
     describe "when the resulting state is invalid" do
-      it "raises ActiveRecord::RecordInvalid and does not write the file" do
+      it "raises Funes::InvalidMaterializationState and does not write the file" do
         events = [
           Examples::DepositEvents::Created.new(value: 100, effective_date: today),
           Examples::DepositEvents::Withdrawn.new(amount: 150, effective_date: today)
         ]
 
-        assert_raises ActiveRecord::RecordInvalid do
+        assert_raises Funes::InvalidMaterializationState do
           Examples::Deposit::JsonSnapshotProjection.materialize!(events, idx, at: today)
         end
         refute File.exist?(storage_path)

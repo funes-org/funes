@@ -1,5 +1,6 @@
 require "funes/unknown_event"
 require "funes/unknown_materialization_model"
+require "funes/invalid_materialization_state"
 
 module Funes
   # Projections perform the necessary pattern-matching to compute and aggregate the interpretations that the system
@@ -127,12 +128,13 @@ module Funes
       #
       # When set, the named method is invoked on the in-memory state after all interpretations have
       # run and +idx+ has been assigned. The method takes no arguments and is expected to raise on
-      # failure. The framework still calls +state.valid?+ and raises +ActiveRecord::RecordInvalid+
-      # before delegating, so the custom method only runs against valid state.
+      # failure. The framework still calls +state.valid?+ and raises
+      # +Funes::InvalidMaterializationState+ before delegating, so the custom method only runs
+      # against valid state.
       #
-      # Declaring +persist_with+ also lifts the requirement that the materialization model be an
-      # +ActiveRecord::Base+ subclass: a plain +ActiveModel+ class is enough as long as it exposes
-      # +assign_attributes+, +attributes+, +valid?+ and +errors+.
+      # Declaring +persist_materialization_model_with+ also lifts the requirement that the
+      # materialization model be an +ActiveRecord::Base+ subclass: a plain +ActiveModel+ class is
+      # enough as long as it exposes +assign_attributes+, +attributes+, +valid?+ and +errors+.
       #
       # *Idempotency contract:* re-running the projection with the same events must produce the same
       # external state. The default upsert satisfies this naturally; custom implementations must
@@ -144,9 +146,9 @@ module Funes
       # @example Persisting a projection to a JSON file
       #   class YourProjection < Funes::Projection
       #     materialization_model YourMaterializationModel
-      #     persist_with :save_to_object_storage!
+      #     persist_materialization_model_with :save_to_object_storage!
       #   end
-      def persist_with(method_name)
+      def persist_materialization_model_with(method_name)
         @persist_method = method_name
       end
 
@@ -251,7 +253,11 @@ module Funes
       end
 
       def persist_based_on!(state)
-        raise ActiveRecord::RecordInvalid.new(state) unless state.valid?
+        unless state.valid?
+          raise Funes::InvalidMaterializationState.new(state) if @persist_method
+          raise ActiveRecord::RecordInvalid.new(state)
+        end
+
         if @persist_method
           state.public_send(@persist_method)
         else

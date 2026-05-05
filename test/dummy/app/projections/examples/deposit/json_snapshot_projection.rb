@@ -1,7 +1,7 @@
 module Examples::Deposit
   class JsonSnapshotProjection < Funes::Projection
     materialization_model Examples::Deposit::JsonSnapshot
-    persist_with :save_to_object_storage!
+    persist_materialization_model_with :save_to_object_storage!
 
     interpretation_for Examples::DepositEvents::Created do |state, event, at|
       state.assign_attributes(original_value: event.value, balance: event.value,
