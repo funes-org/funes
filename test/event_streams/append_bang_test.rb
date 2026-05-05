@@ -145,12 +145,7 @@ class AppendBangTest < ActiveSupport::TestCase
   describe "when a transactional projection using persist_materialization_model_with fails validation" do
     let(:event) { Examples::DepositEvents::Created.new(value: 42, effective_date: Date.today) }
     let(:failing_stream) { SpecFailingExamples::PersistMaterializationModelWith::DepositEventStreamWithValidationFailure }
-    let(:materialization_model) do
-      failing_stream
-      SpecFailingExamples::PersistMaterializationModelWith::FailingMaterializationModel
-    end
-
-    before { materialization_model.persist_calls = 0 }
+    let(:materialization_model) { SpecFailingExamples::PersistMaterializationModelWith::FailingMaterializationModel }
 
     it "raises Funes::InvalidMaterializationState whose record is the failed materialization, not the event" do
       assert_no_enqueued_jobs do
@@ -162,15 +157,16 @@ class AppendBangTest < ActiveSupport::TestCase
         assert_kind_of materialization_model, error.record
         refute event.persisted?
         refute Funes::EventEntry.exists?(idx: idx)
-        assert_equal 0, materialization_model.persist_calls
+        assert_equal 0, error.record.persist_calls
       end
     end
 
     it "rolls back sibling writes inside a host-managed ActiveRecord::Base.transaction" do
       sibling_idx = "sibling-pmw-#{SecureRandom.uuid}"
+      error = nil
 
       assert_no_enqueued_jobs do
-        assert_raises(Funes::InvalidMaterializationState) do
+        error = assert_raises(Funes::InvalidMaterializationState) do
           ActiveRecord::Base.transaction do
             Examples::Deposit::Snapshot.create!(idx: sibling_idx, created_at: Date.today,
                                                 original_value: 10, balance: 10)
@@ -182,7 +178,7 @@ class AppendBangTest < ActiveSupport::TestCase
       refute Examples::Deposit::Snapshot.exists?(sibling_idx), "sibling write must be rolled back"
       refute Funes::EventEntry.exists?(idx: idx)
       refute event.persisted?
-      assert_equal 0, materialization_model.persist_calls
+      assert_equal 0, error.record.persist_calls
     end
   end
 

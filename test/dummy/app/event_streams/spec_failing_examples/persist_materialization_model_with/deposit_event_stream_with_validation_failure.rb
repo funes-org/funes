@@ -1,24 +1,27 @@
 module SpecFailingExamples::PersistMaterializationModelWith
   # A non-ActiveRecord materialization model that always fails validation when reached.
-  # `persist!` increments a class-level counter so the tests can assert it was never invoked
-  # when the framework's validation gate fires first.
+  # `persist!` increments a per-instance counter so the tests can assert it was never invoked
+  # when the framework's validation gate fires first. State lives on the instance (not the class)
+  # to keep the fixture safe under threaded test parallelism.
   class FailingMaterializationModel
     include ActiveModel::Model
     include ActiveModel::Attributes
     include ActiveModel::AttributeAssignment
-
-    class << self
-      attr_accessor :persist_calls
-    end
-    self.persist_calls = 0
 
     attribute :idx, :string
     attribute :balance, :decimal
 
     validates :balance, numericality: { greater_than: 1_000_000 }
 
+    attr_reader :persist_calls
+
+    def initialize(*)
+      super
+      @persist_calls = 0
+    end
+
     def persist!
-      self.class.persist_calls += 1
+      @persist_calls += 1
       true
     end
   end
