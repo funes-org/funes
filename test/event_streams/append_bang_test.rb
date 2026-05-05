@@ -144,11 +144,9 @@ class AppendBangTest < ActiveSupport::TestCase
 
   describe "when a transactional projection using persist_materialization_model_with fails validation" do
     let(:event) { Examples::DepositEvents::Created.new(value: 42, effective_date: Date.today) }
-    # Reference the event stream first so Zeitwerk loads the fixture file (which also defines the
-    # materialization model under the same namespace).
     let(:failing_stream) { SpecFailingExamples::PersistMaterializationModelWith::DepositEventStreamWithValidationFailure }
     let(:materialization_model) do
-      failing_stream # ensure the fixture file is loaded
+      failing_stream
       SpecFailingExamples::PersistMaterializationModelWith::FailingMaterializationModel
     end
 
