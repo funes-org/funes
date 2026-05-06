@@ -258,7 +258,7 @@ class ProjectionTest < ActiveSupport::TestCase
     let(:today) { Date.today }
     let(:events_coll) { [ Examples::DepositEvents::Created.new(value: 100, effective_date: today) ] }
 
-    class SpyMaterializationModel
+    class LocalSpyMaterializationModel
       include ActiveModel::Model
       include ActiveModel::Attributes
 
@@ -272,12 +272,11 @@ class ProjectionTest < ActiveSupport::TestCase
       attribute :status, :string
       attribute :created_at, :date
 
-      attr_accessor :persist_calls, :persist_invalid_attempt
+      attr_accessor :persist_calls
 
       def initialize(*)
         super
         @persist_calls = 0
-        @persist_invalid_attempt = false
         self.class.last_instance = self
       end
 
@@ -287,12 +286,12 @@ class ProjectionTest < ActiveSupport::TestCase
       end
     end
 
-    class InvalidSpyMaterializationModel < SpyMaterializationModel
+    class LocalInvalidSpyMaterializationModel < LocalSpyMaterializationModel
       validates :balance, numericality: { greater_than: 1_000_000 }
     end
 
-    class SpyProjection < Funes::Projection
-      materialization_model SpyMaterializationModel
+    class LocalSpyProjection < Funes::Projection
+      materialization_model LocalSpyMaterializationModel
       persist_materialization_model_with :persist!
 
       interpretation_for Examples::DepositEvents::Created do |state, event, _at|
@@ -301,8 +300,8 @@ class ProjectionTest < ActiveSupport::TestCase
       end
     end
 
-    class InvalidSpyProjection < Funes::Projection
-      materialization_model InvalidSpyMaterializationModel
+    class LocalInvalidSpyProjection < Funes::Projection
+      materialization_model LocalInvalidSpyMaterializationModel
       persist_materialization_model_with :persist!
 
       interpretation_for Examples::DepositEvents::Created do |state, event, _at|
@@ -312,35 +311,35 @@ class ProjectionTest < ActiveSupport::TestCase
     end
 
     it "invokes the named instance method on the state" do
-      SpyMaterializationModel.last_instance = nil
-      returned = SpyProjection.materialize!(events_coll, "some-id", at: today)
+      LocalSpyMaterializationModel.last_instance = nil
+      returned = LocalSpyProjection.materialize!(events_coll, "some-id", at: today)
 
       assert_equal 1, returned.persist_calls
       assert_equal "some-id", returned.idx
     end
 
     it "returns the state itself rather than a fresh model instance" do
-      SpyMaterializationModel.last_instance = nil
-      returned = SpyProjection.materialize!(events_coll, "some-id", at: today)
+      LocalSpyMaterializationModel.last_instance = nil
+      returned = LocalSpyProjection.materialize!(events_coll, "some-id", at: today)
 
-      assert_same SpyMaterializationModel.last_instance, returned
+      assert_same LocalSpyMaterializationModel.last_instance, returned
     end
 
     it "raises Funes::InvalidMaterializationState before invoking the persist method when state is invalid" do
       error = assert_raises Funes::InvalidMaterializationState do
-        InvalidSpyProjection.materialize!(events_coll, "some-id", at: today)
+        LocalInvalidSpyProjection.materialize!(events_coll, "some-id", at: today)
       end
-      refute_nil InvalidSpyMaterializationModel.last_instance
-      assert_same InvalidSpyMaterializationModel.last_instance, error.record
-      assert_equal 0, InvalidSpyMaterializationModel.last_instance.persist_calls
+      refute_nil LocalInvalidSpyMaterializationModel.last_instance
+      assert_same LocalInvalidSpyMaterializationModel.last_instance, error.record
+      assert_equal 0, LocalInvalidSpyMaterializationModel.last_instance.persist_calls
     end
 
     it "treats a non-ActiveRecord materialization model as persistable when persist_materialization_model_with is set" do
-      SpyMaterializationModel.last_instance = nil
-      SpyProjection.materialize!(events_coll, "some-id", at: today)
+      LocalSpyMaterializationModel.last_instance = nil
+      LocalSpyProjection.materialize!(events_coll, "some-id", at: today)
 
-      refute SpyMaterializationModel <= ActiveRecord::Base
-      assert_equal 1, SpyMaterializationModel.last_instance.persist_calls
+      refute LocalSpyMaterializationModel <= ActiveRecord::Base
+      assert_equal 1, LocalSpyMaterializationModel.last_instance.persist_calls
     end
   end
 end
