@@ -1,4 +1,6 @@
 /.bundle/
+/guides/.bundle/
+/guides/_site/
 /doc/
 /docs/
 /.yardoc/

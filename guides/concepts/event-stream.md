@@ -1,11 +1,11 @@
 ---
-title: Event Streams
+title: Event Stream
 layout: default
-parent: Core Concepts
-nav_order: 3
+parent: Concepts
+nav_order: 2
 ---
 
-# Event Streams
+# Event Stream
 {: .no_toc }
 
 ## Table of contents
@@ -16,7 +16,7 @@ nav_order: 3
 
 ---
 
-An **Event Stream** is a logical grouping of events for a specific entity — all events for `Account:42`, or all events for `Order:99`. It is the primary interface for writing to the event log and orchestrating how projections update.
+An **Event Stream** is a sequenced group of events from the event log, identified by a stream ID. In practice, a stream usually represents a single entity instance — `Account:42`, `Order:99` — but it can just as well group a broader collection. Either way, the stream is the primary interface for writing to the log and orchestrating how projections update.
 
 ## Appending events
 
@@ -70,23 +70,6 @@ Beyond the consistency projection, the stream gives you fine-grained control ove
 
 Transactional projections roll back together with the event if anything fails, keeping your data consistent. Async projections are offloaded to your job backend — `Sidekiq`, `Solid Queue`, or any other `ActiveJob`-compatible adapter.
 
-## Host-managed transactions with `append!`
+## Host-managed transactions
 
-Sometimes you need to append an event from inside a transaction you already control — to keep a sibling `update!` in lockstep with the event, or to write to two streams atomically. Use `append!` for that. It mirrors Rails' `save` / `save!` pair: on any failure it raises `ActiveRecord::RecordInvalid`, which rolls back the enclosing transaction.
-
-```ruby
-event = Order::Placed.new(total: 99.99)
-begin
-  ActiveRecord::Base.transaction do
-    customer.update!(last_ordered_at: Time.current)
-    OrderEventStream.for(order_id).append!(event)
-  end
-rescue ActiveRecord::RecordInvalid
-  event.persisted?  # => false
-  event.errors.any? # => true
-end
-```
-
-The failed event stays queryable after the rescue (`persisted?`, `errors`), just like a record that failed `save!`. Async projections are only enqueued once the outer transaction commits, so a rolled-back transaction never schedules a job.
-
-> **Note:** Use `append` when the stream owns the transaction, and `append!` when your code does. Mixing the two inside a single host-managed block defeats the rollback guarantees `append!` provides.
+When you need to coordinate an `append` with other writes inside a transaction your code already controls, use `append!`. See the [Atomic writes](../recipes/atomic-writes) recipe for the full pattern.

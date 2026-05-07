@@ -1,10 +1,11 @@
 ---
-title: Temporal Queries
+title: Building bi-temporal event streams
 layout: default
+parent: Recipes
 nav_order: 6
 ---
 
-# Temporal Queries
+# Building bi-temporal event streams
 {: .no_toc }
 
 After reading this guide, you will know how to query your event streams at any point in time — both by when events were recorded and by when they actually occurred.
@@ -17,7 +18,7 @@ After reading this guide, you will know how to query your event streams at any p
 
 ---
 
-Event sourcing preserves the full history of your system, which unlocks a class of questions that a mutable database simply cannot answer. Funes tracks two independent temporal dimensions, giving you full [**bitemporal**](https://martinfowler.com/articles/bitemporal-history.html) history:
+Event sourcing preserves the full history of your system, which unlocks a class of questions that a mutable database simply cannot answer. Funes tracks two independent temporal dimensions, giving you full [**bitemporal**](https://martinfowler.com/articles/bitemporal-history.html) history (Martin Fowler's article is the canonical reference if you want the conceptual background):
 
 | Dimension | Parameter | Stored in | Question it answers |
 |:----------|:----------|:----------|:--------------------|

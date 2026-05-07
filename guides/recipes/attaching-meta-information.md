@@ -1,10 +1,11 @@
 ---
-title: Event Metainformation
+title: Attaching meta information to events
 layout: default
+parent: Recipes
 nav_order: 5
 ---
 
-# Event Metainformation
+# Attaching meta information to events
 {: .no_toc }
 
 After reading this guide, you will know how to attach contextual data — such as the acting user and the current request — to every event your application records.

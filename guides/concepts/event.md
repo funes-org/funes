@@ -1,11 +1,11 @@
 ---
-title: Events
+title: Event
 layout: default
-parent: Core Concepts
+parent: Concepts
 nav_order: 1
 ---
 
-# Events
+# Event
 {: .no_toc }
 
 ## Table of contents
@@ -17,6 +17,8 @@ nav_order: 1
 ---
 
 An **Event** is an immutable record of something that happened. Unlike a traditional model, an event is not current state — it is a fact from history.
+
+> **Note:** Events are facts. Once recorded, they are written in stone — Funes never updates or deletes them. If reality turns out to be different from what was recorded, you correct the record by appending a new event, not by editing the old one.
 
 ## Facts, not state
 
@@ -46,4 +48,3 @@ end
 ```
 
 Because events are `ActiveModel` instances and not `ActiveRecord` models, they are **schema-independent**. Your historical facts never need a migration just because your UI requirements changed.
-

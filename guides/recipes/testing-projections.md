@@ -1,10 +1,11 @@
 ---
-title: Testing Projections
+title: Testing projections
 layout: default
-nav_order: 7
+parent: Recipes
+nav_order: 8
 ---
 
-# Testing Projections
+# Testing projections
 {: .no_toc }
 
 After reading this guide, you will know how to test projection logic in isolation — one interpretation at a time — using the `Funes::ProjectionTestHelper`.
@@ -169,4 +170,4 @@ class OutstandingBalanceProjectionTest < ActiveSupport::TestCase
 end
 ```
 
-To understand what a projection does and how to write one, see the [Projections](core-concepts/projections) guide.
+To understand what a projection does and how to write one, see the [Projection](../concepts/projection) concept.

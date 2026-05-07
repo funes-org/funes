@@ -21,4 +21,5 @@ exclude:
   - Gemfile
   - Gemfile.lock
   - README.md
+  - CLAUDE.md
   - _config_env.yml
