@@ -90,10 +90,6 @@ Funes gives you fine-grained control over when and how projections run:
 * **Validation before persistence:** before upserting the materialization, Funes runs ActiveRecord validations on the materialization model. If the model is invalid, an `ActiveRecord::RecordInvalid` exception is raised, the transaction rolls back, and the event is not persisted.
 * **Fail-loud on errors:** if a projection fails with a database error (e.g., constraint violation) or a validation error, the transaction rolls back, the event is marked as not persisted (`persisted?` returns `false`), and the exception (`ActiveRecord::StatementInvalid` or `ActiveRecord::RecordInvalid`) propagates. This ensures bugs are immediately visible rather than silently hidden, while keeping the event in a consistent state for any rescue logic in your application.
 
-### Host-managed transactions with `append!`
-
-When you need to append from inside your own `ActiveRecord::Base.transaction` — for example, to keep a sibling update in lockstep with the event, or to write to two streams atomically — use `append!`. It mirrors Rails' `save` / `save!` pair: any failure raises `ActiveRecord::RecordInvalid` and rolls back the enclosing transaction. See the [Event Streams guide](https://docs.funes.org/core-concepts/event-streams) for a full walkthrough.
-
 ### Async projections
 
 * **Background processing:** these are offloaded to `ActiveJob`, ensuring that heavy computations don't slow down the write path.
@@ -109,9 +105,9 @@ Guides and full API documentation are available at [docs.funes.org](https://docs
 
 ## Performance
 
-Precise benchmarks for an event sourcing framework are notoriously hard to pin down: workloads vary, projection costs differ, and absolute numbers depend heavily on hardware and stream layout. So treat the figures we publish as directional rather than definitive.
+Precise benchmarks are notoriously hard to pin down: workloads vary, and absolute numbers depend heavily on hardware, configuration, and the shape of the data. So treat the figures we publish as directional rather than definitive.
 
-That said, our measurements consistently show that the complexity of event stream operations stays **sub-linear, comfortably within `O(n)`** as the log grows — which is the property that matters for long-lived streams.
+That said, our measurements consistently show that the complexity of event stream operations stays **sub-linear, comfortably within `O(n)`** as the log grows — which is an important property for medium/long-lived streams.
 
 You can browse the latest measurements and join the conversation in the [Performance Measurements](https://github.com/funes-org/funes/discussions/categories/performance-measurements) discussions.
 
