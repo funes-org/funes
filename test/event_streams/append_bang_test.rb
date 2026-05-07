@@ -142,6 +142,79 @@ class AppendBangTest < ActiveSupport::TestCase
     end
   end
 
+  describe "when a transactional projection using persist_materialization_model_with fails validation" do
+    let(:event) { Examples::DepositEvents::Created.new(value: 42, effective_date: Date.today) }
+    let(:failing_stream) { SpecFailingExamples::PersistMaterializationModelWith::DepositEventStreamWithValidationFailure }
+
+    it "raises Funes::InvalidMaterializationState whose record is the failed materialization, not the event" do
+      assert_no_enqueued_jobs do
+        error = assert_raises(Funes::InvalidMaterializationState) do
+          failing_stream.for(idx).append!(event)
+        end
+
+        refute_same event, error.record
+        assert_kind_of SpecFailingExamples::PersistMaterializationModelWith::FailingMaterializationModel, error.record
+        refute event.persisted?
+        refute Funes::EventEntry.exists?(idx: idx)
+        assert_equal 0, error.record.persist_calls
+      end
+    end
+
+    it "rolls back sibling writes inside a host-managed ActiveRecord::Base.transaction" do
+      sibling_idx = "sibling-pmw-#{SecureRandom.uuid}"
+      error = nil
+
+      assert_no_enqueued_jobs do
+        error = assert_raises(Funes::InvalidMaterializationState) do
+          ActiveRecord::Base.transaction do
+            Examples::Deposit::Snapshot.create!(idx: sibling_idx, created_at: Date.today,
+                                                original_value: 10, balance: 10)
+            failing_stream.for(idx).append!(event)
+          end
+        end
+      end
+
+      refute Examples::Deposit::Snapshot.exists?(sibling_idx), "sibling write must be rolled back"
+      refute Funes::EventEntry.exists?(idx: idx)
+      refute event.persisted?
+      assert_equal 0, error.record.persist_calls
+    end
+  end
+
+  describe "when a transactional projection's custom persistence method itself raises an arbitrary exception" do
+    let(:event) { Examples::DepositEvents::Created.new(value: 42, effective_date: Date.today) }
+    let(:failing_stream) { SpecFailingExamples::PersistMaterializationModelWith::DepositEventStreamWithPersistFailure }
+
+    it "propagates the developer's exception unchanged and leaves nothing persisted" do
+      assert_no_enqueued_jobs do
+        assert_raises(SpecFailingExamples::PersistMaterializationModelWith::PersistFailureError) do
+          failing_stream.for(idx).append!(event)
+        end
+
+        refute event.persisted?
+        refute Funes::EventEntry.exists?(idx: idx)
+      end
+    end
+
+    it "rolls back sibling writes inside a host-managed ActiveRecord::Base.transaction" do
+      sibling_idx = "sibling-pmw-raise-#{SecureRandom.uuid}"
+
+      assert_no_enqueued_jobs do
+        assert_raises(SpecFailingExamples::PersistMaterializationModelWith::PersistFailureError) do
+          ActiveRecord::Base.transaction do
+            Examples::Deposit::Snapshot.create!(idx: sibling_idx, created_at: Date.today,
+                                                original_value: 10, balance: 10)
+            failing_stream.for(idx).append!(event)
+          end
+        end
+      end
+
+      refute Examples::Deposit::Snapshot.exists?(sibling_idx), "sibling write must be rolled back"
+      refute Funes::EventEntry.exists?(idx: idx)
+      refute event.persisted?
+    end
+  end
+
   describe "when append! is wrapped in a user-opened ActiveRecord::Base.transaction" do
     let(:event) { Examples::DepositEvents::Created.new(value: 42, effective_date: Date.today) }
     let(:sibling_idx) { "sibling-#{SecureRandom.uuid}" }
