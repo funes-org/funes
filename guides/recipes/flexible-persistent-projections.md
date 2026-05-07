@@ -2,7 +2,7 @@
 title: Having flexible persistent projections
 layout: default
 parent: Recipes
-nav_order: 7
+nav_order: 5
 ---
 
 # Having flexible persistent projections

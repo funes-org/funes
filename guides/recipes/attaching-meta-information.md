@@ -2,7 +2,7 @@
 title: Attaching meta information to events
 layout: default
 parent: Recipes
-nav_order: 5
+nav_order: 3
 ---
 
 # Attaching meta information to events

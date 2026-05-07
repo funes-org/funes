@@ -2,7 +2,7 @@
 title: Testing projections
 layout: default
 parent: Recipes
-nav_order: 8
+nav_order: 6
 ---
 
 # Testing projections
