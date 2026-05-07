@@ -170,4 +170,4 @@ class OutstandingBalanceProjectionTest < ActiveSupport::TestCase
 end
 ```
 
-To understand what a projection does and how to write one, see the [Projection](../concepts/projection) concept.
+To understand what a projection does and how to write one, see the [Projection](/concepts/projection/) concept.

@@ -122,7 +122,7 @@ class OutstandingBalanceProjection < Funes::Projection
 end
 ```
 
-When the database is the wrong place to store a projection — you'd rather drop a JSON to S3, refresh a Redis cache, or push a document to a search index — you can replace the default upsert with any method on the materialization model. See the [Flexible persistent projections](../recipes/flexible-persistent-projections) recipe for the pattern.
+When the database is the wrong place to store a projection — you'd rather drop a JSON to S3, refresh a Redis cache, or push a document to a search index — you can replace the default upsert with any method on the materialization model. See the [Flexible persistent projections](/recipes/flexible-persistent-projections/) recipe for the pattern.
 
 ## Lifecycle hooks
 
@@ -145,9 +145,9 @@ final_state do |state, at|
 end
 ```
 
-> **Note:** The `at` parameter in both hooks is the **query's temporal reference** — what you passed as `at:` to `projected_with`. This is different from the `at` inside `interpretation_for` blocks, which is each event's own `occurred_at`. See the [Building bi-temporal event streams](../recipes/bi-temporal-event-streams) recipe for the full picture.
+> **Note:** The `at` parameter in both hooks is the **query's temporal reference** — what you passed as `at:` to `projected_with`. This is different from the `at` inside `interpretation_for` blocks, which is each event's own `occurred_at`. See the [Building bi-temporal event streams](/recipes/bi-temporal-event-streams/) recipe for the full picture.
 
-> **Note:** When `projected_with` has no events to replay — the stream is unknown, or the temporal filters exclude every event — it raises `ActiveRecord::RecordNotFound`, so controllers that use it get a 404 automatically. See [When there is nothing to project](../recipes/bi-temporal-event-streams#when-there-is-nothing-to-project).
+> **Note:** When `projected_with` has no events to replay — the stream is unknown, or the temporal filters exclude every event — it raises `ActiveRecord::RecordNotFound`, so controllers that use it get a 404 automatically. See [When there is nothing to project](/recipes/bi-temporal-event-streams/#when-there-is-nothing-to-project).
 
 ## Strict mode
 

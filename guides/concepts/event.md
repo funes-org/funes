@@ -20,6 +20,8 @@ An **Event** is an immutable record of something that happened. Unlike a traditi
 
 > **Note:** Events are facts. Once recorded, they are written in stone — Funes never updates or deletes them. If reality turns out to be different from what was recorded, you correct the record by appending a new event, not by editing the old one.
 
+> **Note:** Choose event class names with care up front. Funes stores the literal class name in the `event_entries` table for every event ever appended, so renaming one is technically possible but never trivial — it means a data migration over every persisted event of that type, coordinated with the code rename. Treat the name as part of the fact.
+
 ## Facts, not state
 
 Think about how a typical Rails model works: a `User` record represents who they are *now*. When their email changes, you overwrite the old value and it's gone.

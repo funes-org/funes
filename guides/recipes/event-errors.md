@@ -68,4 +68,4 @@ A quick rule of thumb:
 - Highlighting a specific field on the form? Use `own_errors` — you only want the event's own field-level failures, not the cross-cutting state errors.
 - Logging or routing a specific failure mode (alerting on overdrafts, for example)? Use `state_errors` — they tell you which projection rejected the event.
 
-> **Note:** The prefix on `state_errors` is localized via `funes.events.led_to_invalid_state_prefix`. See the [Rails I18n for events](rails-i18n-for-events) recipe to translate it.
+> **Note:** The prefix on `state_errors` is localized via `funes.events.led_to_invalid_state_prefix`. See the [Rails I18n for events](/recipes/rails-i18n-for-events/) recipe to translate it.

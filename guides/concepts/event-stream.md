@@ -72,4 +72,4 @@ Transactional projections roll back together with the event if anything fails, k
 
 ## Host-managed transactions
 
-When you need to coordinate an `append` with other writes inside a transaction your code already controls, use `append!`. See the [Atomic writes](../recipes/atomic-writes) recipe for the full pattern.
+When you need to coordinate an `append` with other writes inside a transaction your code already controls, use `append!`. See the [Atomic writes](/recipes/atomic-writes/) recipe for the full pattern.

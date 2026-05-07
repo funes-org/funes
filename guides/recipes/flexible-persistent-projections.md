@@ -108,4 +108,4 @@ Some places this pattern earns its keep:
 
 > **Note:** When the projection is registered as `add_async_projection`, the persist method runs inside `Funes::PersistProjectionJob`. If the method raises, ActiveJob's standard retry machinery kicks in. Make sure the destination tolerates retries — most do, as long as the writes are idempotent on `idx`.
 
-To see how `persist_materialization_model_with` fits into the broader projection picture, check the [Projection](../concepts/projection) concept.
+To see how `persist_materialization_model_with` fits into the broader projection picture, check the [Projection](/concepts/projection/) concept.

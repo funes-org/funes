@@ -39,7 +39,7 @@ module Debt
 end
 ```
 
-For a deeper look at what events are and how they differ from ActiveRecord models, see the [Event](../concepts/event) concept.
+For a deeper look at what events are and how they differ from ActiveRecord models, see the [Event](/concepts/event/) concept.
 
 ## Rendering the form
 
@@ -108,10 +108,10 @@ end
 
 `@event.persisted?` returns `true` when the event was written to the log. On failure, the controller re-renders the form and `@event.errors.full_messages` surfaces the validation messages — the same way an invalid ActiveRecord model would.
 
-> **Note:** The string passed to `.for` is the stream identifier — it groups all events for that entity together. You can learn more about how streams work in the [Event Stream](../concepts/event-stream) concept.
+> **Note:** The string passed to `.for` is the stream identifier — it groups all events for that entity together. You can learn more about how streams work in the [Event Stream](/concepts/event-stream/) concept.
 
 ## Going further
 
-- Translate event attributes and error messages with the [Rails I18n for events](rails-i18n-for-events) recipe.
-- Distinguish unit-validation errors from consistency-projection errors with the [Event errors](event-errors) recipe.
-- Coordinate appends with sibling writes via the [Atomic writes](atomic-writes) recipe.
+- Translate event attributes and error messages with the [Rails I18n for events](/recipes/rails-i18n-for-events/) recipe.
+- Distinguish unit-validation errors from consistency-projection errors with the [Event errors](/recipes/event-errors/) recipe.
+- Coordinate appends with sibling writes via the [Atomic writes](/recipes/atomic-writes/) recipe.

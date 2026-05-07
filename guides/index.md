@@ -86,5 +86,5 @@ Your database is ready. Funes will start appending events to `event_entries` as 
 
 ### Where to next
 
-- The [Concepts](concepts) section explains events, streams, and projections — the three ideas Funes is built around.
-- The [Recipes](recipes) section shows how to apply them: appending from controllers, querying historically, shipping projections to S3, and more.
+- The [Concepts](/concepts/) section explains events, streams, and projections — the three ideas Funes is built around.
+- The [Recipes](/recipes/) section shows how to apply them: appending from controllers, querying historically, shipping projections to S3, and more.

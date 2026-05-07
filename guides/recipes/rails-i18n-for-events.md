@@ -78,4 +78,4 @@ Levou a um estado inválido: Saldo deve ser maior ou igual a 0
 
 The English defaults ship with the gem; you only need to add a locale file for each language you support.
 
-> **Note:** `state_errors` and `own_errors` give you direct access to each error category before they are merged into `errors`. See the [Event errors](event-errors) recipe for the breakdown.
+> **Note:** `state_errors` and `own_errors` give you direct access to each error category before they are merged into `errors`. See the [Event errors](/recipes/event-errors/) recipe for the breakdown.
