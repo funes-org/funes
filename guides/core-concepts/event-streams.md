@@ -69,3 +69,24 @@ Beyond the consistency projection, the stream gives you fine-grained control ove
 | Async Projections | Background job via `ActiveJob` | Reports, analytics, eventually consistent read models |
 
 Transactional projections roll back together with the event if anything fails, keeping your data consistent. Async projections are offloaded to your job backend — `Sidekiq`, `Solid Queue`, or any other `ActiveJob`-compatible adapter.
+
+## Host-managed transactions with `append!`
+
+Sometimes you need to append an event from inside a transaction you already control — to keep a sibling `update!` in lockstep with the event, or to write to two streams atomically. Use `append!` for that. It mirrors Rails' `save` / `save!` pair: on any failure it raises `ActiveRecord::RecordInvalid`, which rolls back the enclosing transaction.
+
+```ruby
+event = Order::Placed.new(total: 99.99)
+begin
+  ActiveRecord::Base.transaction do
+    customer.update!(last_ordered_at: Time.current)
+    OrderEventStream.for(order_id).append!(event)
+  end
+rescue ActiveRecord::RecordInvalid
+  event.persisted?  # => false
+  event.errors.any? # => true
+end
+```
+
+The failed event stays queryable after the rescue (`persisted?`, `errors`), just like a record that failed `save!`. Async projections are only enqueued once the outer transaction commits, so a rolled-back transaction never schedules a job.
+
+> **Note:** Use `append` when the stream owns the transaction, and `append!` when your code does. Mixing the two inside a single host-managed block defeats the rollback guarantees `append!` provides.

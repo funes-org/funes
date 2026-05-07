@@ -92,22 +92,7 @@ Funes gives you fine-grained control over when and how projections run:
 
 ### Host-managed transactions with `append!`
 
-When you need to wrap `append` inside your own `ActiveRecord::Base.transaction` — for example, to keep a sibling update in lockstep with the event, or to append to two streams atomically — use `append!`. It mirrors Rails' `save` / `save!` pair: on any failure it raises `ActiveRecord::RecordInvalid`, which rolls back the enclosing transaction.
-
-```ruby
-event = Order::Placed.new(total: 99.99)
-begin
-  ActiveRecord::Base.transaction do
-    customer.update!(last_ordered_at: Time.current)
-    OrderEventStream.for(order_id).append!(event)
-  end
-rescue ActiveRecord::RecordInvalid
-  event.persisted?  # => false
-  event.errors.any? # => true
-end
-```
-
-The failed event stays queryable after the rescue (`persisted?`, `errors`), just like a record that failed `save!`. Async projections are only enqueued once the outer transaction commits, so a rolled-back transaction never schedules a job.
+When you need to append from inside your own `ActiveRecord::Base.transaction` — for example, to keep a sibling update in lockstep with the event, or to write to two streams atomically — use `append!`. It mirrors Rails' `save` / `save!` pair: any failure raises `ActiveRecord::RecordInvalid` and rolls back the enclosing transaction. See the [Event Streams guide](https://docs.funes.org/core-concepts/event-streams) for a full walkthrough.
 
 ### Async projections
 
@@ -122,12 +107,22 @@ The failed event stays queryable after the rescue (`persisted?`, `errors`), just
 
 Guides and full API documentation are available at [docs.funes.org](https://docs.funes.org).
 
+## Performance
+
+Precise benchmarks for an event sourcing framework are notoriously hard to pin down: workloads vary, projection costs differ, and absolute numbers depend heavily on hardware and stream layout. So treat the figures we publish as directional rather than definitive.
+
+That said, our measurements consistently show that the complexity of event stream operations stays **sub-linear, comfortably within `O(n)`** as the log grows — which is the property that matters for long-lived streams.
+
+You can browse the latest measurements and join the conversation in the [Performance Measurements](https://github.com/funes-org/funes/discussions/categories/performance-measurements) discussions.
+
 ## Compatibility
 
-- **Ruby:** 3.1+
-- **Rails:** 7.2+
+Funes supports the following runtimes:
 
-Rails 8.0+ requires Ruby 3.2 or higher.
+- **Ruby** 3.1 or newer
+- **Rails** 7.2 or newer
+
+If you're on Rails 8.0 or above, you'll need Ruby 3.2 or newer — that's a Rails 8 requirement, not a Funes one.
 
 ## License
 The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
