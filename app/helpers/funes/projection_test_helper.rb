@@ -83,17 +83,17 @@ module Funes
 
     # Applies the final-state transformation of the bound projection.
     #
-    # @param [ActiveModel::Model, ActiveRecord::Base] state The state to finalize.
+    # @param [ActiveModel::Model, ActiveRecord::Base] given The state to finalize.
     # @param [Time, Date] at The temporal reference point. Defaults to +Time.current+.
     # @param [Class<Funes::Projection>, nil] projection Overrides the class bound via +projection+.
     # @return [ActiveModel::Model, ActiveRecord::Base] The state after the +final_state+ block.
     #
     # @example
-    #   assert_equal 33.33, final_state(OrderSnapshot.new(total: 100, item_count: 3)).average_item_price
-    def final_state(state, at: Time.current, projection: nil)
+    #   assert_equal 33.33, final_state(given: OrderSnapshot.new(total: 100, item_count: 3)).average_item_price
+    def final_state(given:, at: Time.current, projection: nil)
       projection_class = resolve_projection(projection)
       projection_class.instance_variable_get(:@interpretations)[:final]
-                      .call(state, coerce_at(at))
+                      .call(given, coerce_at(at))
     end
 
     private

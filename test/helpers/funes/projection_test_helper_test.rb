@@ -186,7 +186,7 @@ class Funes::ProjectionTestHelperTest < ActiveSupport::TestCase
 
   describe "#final_state" do
     it "transforms state correctly" do
-      result = final_state(TestState.new(total: 100, count: 3), projection: FinalStateProjection)
+      result = final_state(given: TestState.new(total: 100, count: 3), projection: FinalStateProjection)
 
       assert_equal "finalized", result.last_note
       assert_equal 100, result.total
@@ -195,12 +195,12 @@ class Funes::ProjectionTestHelperTest < ActiveSupport::TestCase
     it "passes at to the final_state block" do
       at = Time.new(2023, 5, 10, 10, 30, 0)
 
-      assert_equal at, final_state(TestState.new, at: at, projection: FinalStateProjection).recorded_at
+      assert_equal at, final_state(given: TestState.new, at: at, projection: FinalStateProjection).recorded_at
     end
 
     it "uses Time.current as default at" do
       freeze_time do
-        assert_equal Time.current, final_state(TestState.new, projection: FinalStateProjection).recorded_at
+        assert_equal Time.current, final_state(given: TestState.new, projection: FinalStateProjection).recorded_at
       end
     end
 
@@ -208,7 +208,7 @@ class Funes::ProjectionTestHelperTest < ActiveSupport::TestCase
       date = Date.new(2024, 6, 1)
 
       assert_equal date.beginning_of_day,
-                   final_state(TestState.new, at: date, projection: FinalStateProjection).recorded_at
+                   final_state(given: TestState.new, at: date, projection: FinalStateProjection).recorded_at
     end
   end
 end
