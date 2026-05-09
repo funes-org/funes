@@ -13,5 +13,5 @@ Task-focused guides for the things you actually do with Funes. Each recipe assum
 - [Events the Rails way](/recipes/events-the-rails-way/) — define events as `ActiveModel`, render them in forms, surface errors, and translate every label
 - [Attaching meta information to events](/recipes/attaching-meta-information/) — record the user and request context behind every event
 - [Building bi-temporal event streams](/recipes/bi-temporal-event-streams/) — query by `as_of` and `at` for full historical reconstruction
-- [Setting up materialization models](/recipes/materialization-models/) — virtual or persistent (default-database or custom-destination) models for your projections
+- [Setting up projections](/recipes/materialization-models/) — virtual or persistent (default-database or custom-destination) projections
 - [Testing projections](/recipes/testing-projections/) — exercise interpretations in isolation with `ProjectionTestHelper`

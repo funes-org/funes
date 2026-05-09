@@ -1,15 +1,15 @@
 ---
 title: Persistent
 layout: default
-parent: Setting up materialization models
+parent: Setting up projections
 grand_parent: Recipes
 nav_order: 2
 ---
 
-# Persistent materialization models
+# Persistent projections
 {: .no_toc }
 
-After reading this guide, you will know how to set up a persistent materialization model — either backed by an `ActiveRecord` row in a Funes-shaped database table (the default), or written to any custom destination by supplying your own persistence method.
+After reading this guide, you will know how to set up a persistent projection — one that materializes state to a durable store, either backed by an `ActiveRecord` row in a Funes-shaped database table (the default), or written to any custom destination by supplying your own persistence method.
 
 ## Table of contents
 {: .no_toc .text-delta }

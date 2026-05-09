@@ -1,15 +1,15 @@
 ---
 title: Virtual
 layout: default
-parent: Setting up materialization models
+parent: Setting up projections
 grand_parent: Recipes
 nav_order: 1
 ---
 
-# Virtual materialization models
+# Virtual projections
 {: .no_toc }
 
-After reading this guide, you will know how to build an in-memory materialization model — an `ActiveModel` that lives only for the duration of a query and is recomputed from events on demand.
+After reading this guide, you will know how to build a virtual projection — one that materializes state in memory only, recomputed from events on demand and never written anywhere.
 
 ## Table of contents
 {: .no_toc .text-delta }

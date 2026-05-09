@@ -16,18 +16,20 @@ nav_order: 3
 
 ---
 
-A **Projection** transforms a stream of events into a state representation. Projections are the glue between the immutable log and what your application actually needs to answer — the derived state that your controllers, jobs and views reason over. Without them the event log is just inert facts; with them, those facts become the state the rest of your code speaks in.
+A **Projection** transforms a stream of events into a state representation. In code, it's a Ruby class that inherits from `Funes::Projection`. 
+
+Projections are the glue between the immutable log and what your application actually needs to answer — the derived state that your controllers, jobs and views reason over. Without them the event log is just inert facts; with them, those facts become the state the rest of your code relies on.
 
 ## The materialization model
 
-Every projection has a **materialization model** — the class that holds the state being built. It must be declared in the projection definition with `materialization_model`, and is one of two types:
+Every projection must have a **materialization model** — the class that holds the state being built. It must be declared in the projection definition with `materialization_model`, and is one of two types:
 
 - **Virtual** — usually an `ActiveModel`. Lives only in memory, recomputed on demand from the events. Nothing is written anywhere; the next query rebuilds it from scratch.
 - **Persistent** — written somewhere durable so it can be queried directly without replaying. Two flavors:
   - **Database (default)** — usually an `ActiveRecord`. Funes upserts a row in a Funes-shaped table on every relevant event; scaffold the migration with `bin/rails generate funes:materialization_table`.
   - **Custom destination** — usually an `ActiveModel`. Supply your own persistence method to send the materialized state anywhere else (S3, Redis, a search index, an external API, etc.).
 
-For the setup of each, see the [Materialization models](/recipes/materialization-models/) recipes.
+For more details about the setup of each one, see the [Setting up projections](/recipes/materialization-models/) recipes.
 
 ## The interpretations DSL
 
@@ -68,9 +70,12 @@ class OutstandingBalanceProjection < Funes::Projection
 end
 ```
 
+{: .important }
 The `at` parameter inside `interpretation_for` is each event's own occurrence date/time — when the fact happened. The `at` inside `initial_state` and `final_state` is the **query's temporal reference** — the point in time the projection is being computed for, i.e., the moment you're asking about.
 
-Every block returns the (possibly mutated) state object. The DSL is functional — state in, state out, no hidden mutation — which keeps projections predictable and [trivial to test](/recipes/testing-projections/). The per-event handler is where event-sourced systems usually accumulate (or shed) complexity, so Funes makes those few lines pull a lot of weight: each interpretation stays small, while the framework handles replay, ordering, persistence, and concurrency around them. Most of what you write to model your domain lives here.
+Every block returns the (possibly mutated) state object. The DSL is functional — state in, state out, no hidden mutation — which keeps projections predictable and [trivial to test](/recipes/testing-projections/).
+
+The per-event handler is where event-sourced systems usually accumulate (or shed) complexity, so Funes makes those few lines pull a lot of weight: each interpretation stays small, while the framework handles replay, ordering, persistence, and concurrency around them. Most of your domain logic lives here.
 
 ### Strict mode
 
@@ -83,18 +88,18 @@ class OutstandingBalanceProjection < Funes::Projection
 end
 ```
 
-## Persistence tiers for materialization models
+## Persistence tiers for projections
 
-Funes orchestrates projections across three tiers, from synchronous and blocking (to ensure strong consistency when it is necessary) to fully asynchronous. Each tier serves a specific use case:
+Funes orchestrates projection materializations across three tiers, from synchronous and blocking (to ensure strong consistency when it is necessary) to fully asynchronous. Each tier serves a specific use case:
 
-| Tier | When it runs | Use case                                                                                                                                                                                                                            |
-|:-----|:-------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Consistency | Before the event is persisted | Validate the resulting state with a virtual materialization model — if invariants fail, the event is rejected and never persisted (see: [Setting up virtual materialization models](/recipes/materialization-models/virtual/))      |
-| Transactional | Same DB transaction as the event insertion | Keep a persistent read model strongly consistent with the log — a failure rolls back both the projection and the event insertion (see: [Setting up persistent materialization models](/recipes/materialization-models/persistent/)) |
-| Async | Background job via `ActiveJob` | Update persistent read models for reports, analytics, or eventually consistent views (see: [Setting up persistent materialization models](/recipes/materialization-models/persistent/))                                             |
+| Tier | When it runs | Use case                                                                                                                                                                                                                                                                      |
+|:-----|:-------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Consistency | Before the event is persisted | Validate the resulting state with a virtual projection — if invariants fail, the event is rejected and never persisted (see: [Setting up virtual projections](/recipes/materialization-models/virtual/))                                                           |
+| Transactional | Same DB transaction as the event insertion | Keep a persistent read model (usually a default persistent projection) strongly consistent with the log — a failure rolls back both the projection and the event insertion (see: [Setting up persistent projections](/recipes/materialization-models/persistent/)) |
+| Async | Background job via `ActiveJob` | Update persistent projections for reports, analytics, or eventually consistent views (see: [Setting up persistent projections](/recipes/materialization-models/persistent/))                                                                                    |
 
 {: .note }
-All three tiers are opt-in — register a projection at a tier only when you need its specific guarantee. Of the three, the consistency tier is **highly recommended**: it's the only place where an event can be rejected before it enters the log, so reach for it whenever the resulting state has business invariants worth enforcing.
+All three tiers are opt-in — register a projection at a tier only when you need its specific guarantee. Of the three, the consistency tier is the one **highly recommended**: it's the best place to reject an event before it enters the log, so reach for it whenever the resulting state has business invariants worth enforcing.
 
 Because async projections run on `ActiveJob`, any standard Rails job backend works out of the box — `Sidekiq`, `Solid Queue`, or any other `ActiveJob`-compatible adapter — with no Funes-specific wiring. Standard `ActiveJob` scheduling options like `queue`, `wait`, and `wait_until` are accepted when you register an async projection.
 
@@ -127,3 +132,7 @@ sequenceDiagram
         end
     end
 ```
+
+---
+
+🎉 **Congratulations** — you've now met all three concepts Funes is built around: **events** as immutable facts, **event streams** as how they're grouped and recorded, and **projections** as how those facts become the state your application reads. From here, the [Recipes](/recipes/) section is where you put them to work.

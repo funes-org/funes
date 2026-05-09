@@ -113,7 +113,7 @@ The string passed to `.for` is the stream identifier — it groups all events fo
 
 ## Reading the right error collection
 
-When an append fails, two independent things can have gone wrong: the event itself can be invalid (`amount` is negative), or the event can be valid but lead to an invalid state once a consistency projection replays it (the payment would overdraw the account). Funes keeps these two failure modes apart so your form can show the right message in the right place.
+When an append fails, two independent things can have gone wrong: the event itself can be invalid (`amount` is negative), or the event can be valid but lead to an invalid state once a consistency projection replays it (the payment would exceed what's owed). Funes keeps these two failure modes apart so your form can show the right message in the right place.
 
 Every event exposes three error collections. They all return `ActiveModel::Errors`, so anything you'd do with a Rails model's `errors` works here too.
 
@@ -161,7 +161,7 @@ A quick rule of thumb:
 
 - Re-rendering a form? Use `errors` — `form_with` and `errors.full_messages` already do the right thing.
 - Highlighting a specific field on the form? Use `own_errors` — you only want the event's own field-level failures, not the cross-cutting state errors.
-- Logging or routing a specific failure mode (alerting on overdrafts, for example)? Use `state_errors` — they tell you which projection rejected the event.
+- Logging or routing a specific failure mode (alerting on overpayments, for example)? Use `state_errors` — they tell you which projection rejected the event.
 
 ## Translating attributes and messages
 

@@ -27,11 +27,31 @@ Streams are Ruby classes that inherit from `Funes::EventStream`. Name the class 
 class DebtEventStream < Funes::EventStream; end
 ```
 
-There is no schema to migrate, no table to create — every stream lives logically inside the shared `event_entries` table, scoped by the stream identifier you'll pass in next.
+There is no schema to migrate, no table to create — every stream lives logically inside the shared event log (`event_entries` table), scoped by the stream identifier you'll pass in next.
+
+## Getting a stream instance
+
+Call `.for(idx)` on your stream class to get an instance scoped to a specific entity:
+
+```ruby
+stream = DebtEventStream.for("debts-123")
+```
+
+The string passed to `.for` is the stream identifier (`idx`). It links all events for that entity together and ties them to their read models.
+
+You don't need to create a stream before using it. If no events have been recorded for a given `idx`, the stream is implicitly created the moment the first event is appended. There is no setup step — `DebtEventStream.for("debts-456")` works whether `"debts-456"` has a hundred events or none at all.
 
 ## Appending events
 
-To record an event, call `.for(idx)` to get a stream instance for the expected entity, then `.append` the event:
+With the stream in hand, call `.append` to record an event:
+
+```ruby
+stream.append(Debt::Issued.new(amount: 100, 
+                               interest_rate: 0.05, 
+                               at: Time.current))
+```
+
+The two calls can be chained if you don't need to keep the stream reference around:
 
 ```ruby
 DebtEventStream.for("debts-123")
@@ -40,9 +60,9 @@ DebtEventStream.for("debts-123")
                            at: Time.current))
 ```
 
-The string passed to `.for` is the stream identifier (`idx`). It links all events for that entity together and ties them to their read models.
+### Host-managed transactions
 
-You don't need to create a stream before using it. If no events have been recorded for a given `idx`, the stream is implicitly created the moment the first event is appended. There is no setup step — `DebtEventStream.for("debts-456")` works whether `"debts-456"` has a hundred events or none at all.
+When you need to coordinate an `append` with other writes inside a transaction your code already controls, use `append!`. See the [Atomic writes](/recipes/atomic-writes/) recipe for the full pattern.
 
 ## Validating events
 
@@ -55,14 +75,14 @@ With the stream configured, your responsibility ends at `.append`. Funes handles
 
 ### Defining a consistency validation
 
-Wire it up with `consistency_projection`, passing the class that owns the invariant. In this example `VirtualOutstandingBalanceProjection` enforces the rule that the outstanding balance must never go negative — overdraws are not allowed:
+Wire it up with `consistency_projection`, passing the class that owns the invariant. In this example `VirtualOutstandingBalanceProjection` enforces the rule that the outstanding balance must never go negative — overpayments are not allowed:
 
 ```ruby
 class DebtEventStream < Funes::EventStream
   consistency_projection VirtualOutstandingBalanceProjection
 end
 
-# This payment would overdraw the balance — the consistency check rejects it
+# This payment exceeds what's owed — the consistency check rejects it
 invalid_event = Debt::PaymentReceived.new(principal_amount: 999_999, 
                                           interest_amount: 0, 
                                           at: Time.current)
@@ -74,9 +94,9 @@ invalid_event.errors.any?   # => true
 
 ## Optimistic concurrency control
 
-Each event on a stream carries a sequential `version` number. When you call `.append`, the stream reads its latest version (N) and assigns N+1 to the new event before persisting it.
+Each event on a stream carries a sequential `version` number. When you call `.append`, the stream reads its latest version (N) and assigns an incremented version (N+1) to the new event before persisting it.
 
-If two processes append at the same time, both read N and both try to write at N+1. Only one of those writes can succeed — the second event is rejected and `event.persisted?` returns `false`. The losing process can re-read the stream and retry.
+If two processes append at the same time, both read N and both try to write at N+1. Only one of those writes can succeed — the second event is rejected and `event.persisted?` returns `false`. In this case the losing process can re-read the stream and retry.
 
 ```mermaid
 sequenceDiagram
@@ -94,7 +114,6 @@ sequenceDiagram
     B->>Stream: appends at N+1
     Stream-->>B: DENIED❌<br/>event.persisted? = false
 ```
+---
 
-## Host-managed transactions
-
-When you need to coordinate an `append` with other writes inside a transaction your code already controls, use `append!`. See the [Atomic writes](/recipes/atomic-writes/) recipe for the full pattern.
+Up next: [Projection](/concepts/projection/), the last of the three concepts — how a stream of events becomes the state your application reads.

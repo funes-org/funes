@@ -16,9 +16,9 @@ nav_order: 1
 
 ---
 
-An **Event** is an immutable record of something that happened. Unlike a traditional model, an event is not current state — it is a fact from history.
+An **Event** is an immutable record of something that happened. Unlike a traditional model, an event is not current state — it is a fact from history. Once recorded, they are written in stone — Funes never updates or deletes them. 
 
-Events are facts. Once recorded, they are written in stone — Funes never updates or deletes them. How to handle events that no longer reflect reality is a well-studied topic; Greg Young's [*Versioning in an Event Sourced System*](https://leanpub.com/esversioning#table-of-contents) is a thorough reference.
+How to handle events that no longer reflect reality is a well-studied topic; Greg Young's [*Versioning in an Event Sourced System*](https://leanpub.com/esversioning#table-of-contents) is a thorough reference.
 
 {: .warning }
 Choose event class names with care up front. Funes stores the literal class name in the `event_entries` table for every event ever appended, so renaming one is technically possible but never trivial — it means a data migration over every persisted event of that type, coordinated with the code rename. Treat the name as part of the fact.
@@ -51,3 +51,7 @@ end
 ```
 
 Because events are `ActiveModel` instances and not `ActiveRecord` models, they are **schema-independent**. Your historical facts never need a migration just because your UI requirements changed.
+
+---
+
+Up next: [Event Stream](/concepts/event-stream/), the concept that groups events by entity, validates them, and writes them to the log.
