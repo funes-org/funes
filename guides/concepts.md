@@ -1,7 +1,7 @@
 ---
 title: Concepts
 layout: default
-nav_order: 2
+nav_order: 3
 has_children: true
 ---
 
@@ -11,4 +11,4 @@ The pages in this section explain the three ideas Funes is built around: events,
 
 - [Event](/concepts/event/) — the immutable fact at the heart of the system, written in stone
 - [Event Stream](/concepts/event-stream/) — a sequenced group of events identified by a stream ID
-- [Projection](/concepts/projection/) — derive readable state from a stream of events with the interpretations DSL
+- [Projection](/concepts/projection/) — derive state from a stream of events with the interpretations DSL

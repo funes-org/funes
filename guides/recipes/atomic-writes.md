@@ -48,4 +48,5 @@ If the event is invalid — its own validations fail, the consistency projection
 
 Async projections behave correctly here as well: they're only enqueued once the outer transaction commits, so a rolled-back transaction never schedules a job.
 
-> **Note:** Use `append` when the stream owns the transaction, and `append!` when your code does. Mixing the two inside a single host-managed block defeats the rollback guarantees `append!` provides.
+{: .warning }
+Use `append` when the stream owns the transaction, and `append!` when your code does. Mixing the two inside a single host-managed block defeats the rollback guarantees `append!` provides.

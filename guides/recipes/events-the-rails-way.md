@@ -108,7 +108,8 @@ end
 
 `@event.persisted?` returns `true` when the event was written to the log. On failure, the controller re-renders the form and `@event.errors.full_messages` surfaces the validation messages — the same way an invalid ActiveRecord model would.
 
-> **Note:** The string passed to `.for` is the stream identifier — it groups all events for that entity together. You can learn more about how streams work in the [Event Stream](/concepts/event-stream/) concept.
+{: .note }
+The string passed to `.for` is the stream identifier — it groups all events for that entity together. You can learn more about how streams work in the [Event Stream](/concepts/event-stream/) concept.
 
 ## Reading the right error collection
 

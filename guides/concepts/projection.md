@@ -16,18 +16,41 @@ nav_order: 3
 
 ---
 
-A **Projection** transforms a stream of events into a materialized representation — the state your application actually consumes.
+A **Projection** transforms a stream of events into a state representation. Projections are the glue between the immutable log and what your application actually needs to answer — the derived state that your controllers, jobs and views reason over. Without them the event log is just inert facts; with them, those facts become the state the rest of your code speaks in.
+
+## The materialization model
+
+Every projection has a **materialization model** — the class that holds the state being built. It must be declared in the projection definition with `materialization_model`, and is one of two types:
+
+- **Virtual** — usually an `ActiveModel`. Lives only in memory, recomputed on demand from the events. Nothing is written anywhere; the next query rebuilds it from scratch.
+- **Persistent** — written somewhere durable so it can be queried directly without replaying. Two flavors:
+  - **Database (default)** — usually an `ActiveRecord`. Funes upserts a row in a Funes-shaped table on every relevant event; scaffold the migration with `bin/rails generate funes:materialization_table`.
+  - **Custom destination** — usually an `ActiveModel`. Supply your own persistence method to send the materialized state anywhere else (S3, Redis, a search index, an external API, etc.).
+
+For the setup of each, see the [Materialization models](/recipes/materialization-models/) recipes.
 
 ## The interpretations DSL
 
-The interpretations DSL is the heart of every projection. Each `interpretation_for` block describes how one event type affects state: it receives the current state, applies the event's effects, and returns the updated state. Funes replays the events through these handlers in order, producing a final state object.
+The interpretations DSL is the heart of every projection — and the surface Funes was designed around. It gives you three building blocks that together describe how a stream of events becomes a final state:
+
+- `initial_state` (optional) runs once before any events are processed, returning the starting state. If you don't define it, Funes calls `materialization_model.new` and uses the empty instance.
+- `interpretation_for` describes how a single event type affects state — one block per event type — and runs once per matching event.
+- `final_state` (optional) runs once after all events are processed, returning the finalised state. If you don't define it, the state accumulated by the interpretations is returned as-is.
+
+Funes calls them in that order: `initial_state`, then each event through its matching `interpretation_for` in stream order, then `final_state` on the accumulated result.
 
 ```ruby
+# app/projections/outstanding_balance_projection.rb
 class OutstandingBalanceProjection < Funes::Projection
   materialization_model OutstandingBalance
 
-  interpretation_for Debt::Issued do |state, event, _at|
-    state.outstanding_balance += event.amount
+  initial_state do |materialization_model_klass, at|
+    materialization_model_klass.new(observed_at: at)
+  end
+
+  interpretation_for Debt::Issued do |state, event, at|
+    state.outstanding_balance = event.amount
+    state.issuance_date = at
     state.last_payment_at = nil
     state
   end
@@ -37,125 +60,70 @@ class OutstandingBalanceProjection < Funes::Projection
     state.last_payment_at = at
     state
   end
-end
-```
 
-Projections follow a **functional approach** — state in, state out, no hidden mutation — which keeps them predictable and trivial to test. This is the leverage at the centre of Funes: most of what you write to model your domain happens here.
-
-## Materialization model
-
-Every projection declares a **materialization model** — the class that represents the state being built. Funes instantiates it with a blank state, passes it through each `interpretation_for` block in sequence, and the final instance is the projection's output:
-
-```ruby
-class OutstandingBalanceProjection < Funes::Projection
-  materialization_model OutstandingBalance
-end
-```
-
-The materialization model can be either an `ActiveModel` class (for in-memory state) or an `ActiveRecord` model (for a persisted read table). The two projection types below each use a different kind.
-
-### Virtual projections
-
-Virtual projections extend `ActiveModel` and exist only in memory. They are calculated on the fly, which makes them ideal for validating business rules against the current state before an event is persisted.
-
-```ruby
-# app/projections/virtual_outstanding_balance_projection.rb
-class OutstandingBalance
-  include ActiveModel::Model
-  include ActiveModel::Attributes
-
-  attribute :outstanding_balance, :decimal
-  attribute :last_payment_at, :datetime
-
-  validates :outstanding_balance, numericality: { greater_than_or_equal_to: 0 }
-end
-
-class VirtualOutstandingBalanceProjection < Funes::Projection
-  materialization_model OutstandingBalance
-
-  interpretation_for Debt::Issued do |state, event, _at|
-    # apply issuance logic and return the updated state
-  end
-
-  interpretation_for Debt::PaymentReceived do |state, event, _at|
-    # apply payment logic and return the updated state
+  final_state do |state, at|
+    state.assign_attributes(days_in_effect: (at.to_date - state.issuance_date.to_date).to_i)
+    state
   end
 end
 ```
 
-### Persistent projections
+The `at` parameter inside `interpretation_for` is each event's own occurrence date/time — when the fact happened. The `at` inside `initial_state` and `final_state` is the **query's temporal reference** — the point in time the projection is being computed for, i.e., the moment you're asking about.
 
-Persistent projections extend `ActiveRecord` and are stored in your database. These are your read models — fast, queryable tables derived from the event history.
+Every block returns the (possibly mutated) state object. The DSL is functional — state in, state out, no hidden mutation — which keeps projections predictable and [trivial to test](/recipes/testing-projections/). The per-event handler is where event-sourced systems usually accumulate (or shed) complexity, so Funes makes those few lines pull a lot of weight: each interpretation stays small, while the framework handles replay, ordering, persistence, and concurrency around them. Most of what you write to model your domain lives here.
 
-> **Note:** Persistent projections are optional. Plenty of useful projections live entirely in memory and are recomputed on demand. Reach for persistence when query performance demands it, not by default.
+### Strict mode
 
-Their materialization table must follow a specific structure: no auto-incrementing primary key, and an `idx` string column as the primary key with a unique index. Use the provided generator to create a correctly structured migration:
-
-```bash
-$ bin/rails generate funes:materialization_table OutstandingBalance outstanding_balance:decimal last_payment_at:datetime
-$ bin/rails db:migrate
-```
-
-> Funes uses `upsert` on `idx` to keep the table in sync as new events arrive.
-
-Once the migration is in place, define the ActiveRecord model and a projection that uses it:
-
-```ruby
-# app/models/outstanding_balance.rb
-class OutstandingBalance < ApplicationRecord
-  self.primary_key = "idx"
-end
-```
-
-```ruby
-# app/projections/outstanding_balance_projection.rb
-class OutstandingBalanceProjection < Funes::Projection
-  materialization_model OutstandingBalance
-
-  interpretation_for Debt::Issued do |state, event, _at|
-    # apply issuance logic and return the updated state
-  end
-
-  interpretation_for Debt::PaymentReceived do |state, event, _at|
-    # apply payment logic and return the updated state
-  end
-end
-```
-
-When the database is the wrong place to store a projection — you'd rather drop a JSON to S3, refresh a Redis cache, or push a document to a search index — you can replace the default upsert with any method on the materialization model. See the [Flexible persistent projections](/recipes/flexible-persistent-projections/) recipe for the pattern.
-
-## Lifecycle hooks
-
-Beyond `interpretation_for`, the DSL provides two hooks that bookend the replay.
-
-`initial_state` is called once before any events are processed. It receives the materialization model class and the query's temporal reference, and must return the object that will be passed as `state` to the first interpretation:
-
-```ruby
-initial_state do |model, at|
-  model.new(recorded_as_of: at)
-end
-```
-
-`final_state` is called once after all events have been processed. It receives the accumulated state and the query's temporal reference, and must return the final state:
-
-```ruby
-final_state do |state, at|
-  state.assign_attributes(days_in_effect: (at.to_date - state.since.to_date).to_i)
-  state
-end
-```
-
-> **Note:** The `at` parameter in both hooks is the **query's temporal reference** — what you passed as `at:` to `projected_with`. This is different from the `at` inside `interpretation_for` blocks, which is each event's own `occurred_at`. See the [Building bi-temporal event streams](/recipes/bi-temporal-event-streams/) recipe for the full picture.
-
-> **Note:** When `projected_with` has no events to replay — the stream is unknown, or the temporal filters exclude every event — it raises `ActiveRecord::RecordNotFound`, so controllers that use it get a 404 automatically. See [When there is nothing to project](/recipes/bi-temporal-event-streams/#when-there-is-nothing-to-project).
-
-## Strict mode
-
-By default, a projection silently ignores events it has no `interpretation_for`. If you want Funes to raise an error instead — useful for critical projections where a missing handler is a bug — enable strict mode:
+By default, a projection silently ignores events it has no `interpretation_for`. If you want Funes to raise an error instead — useful for critical projections where a missing handler can be an issue — enable strict mode:
 
 ```ruby
 class OutstandingBalanceProjection < Funes::Projection
   raise_on_unknown_events
   # ...
 end
+```
+
+## Persistence tiers for materialization models
+
+Funes orchestrates projections across three tiers, from synchronous and blocking (to ensure strong consistency when it is necessary) to fully asynchronous. Each tier serves a specific use case:
+
+| Tier | When it runs | Use case                                                                                                                                                                                                                            |
+|:-----|:-------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Consistency | Before the event is persisted | Validate the resulting state with a virtual materialization model — if invariants fail, the event is rejected and never persisted (see: [Setting up virtual materialization models](/recipes/materialization-models/virtual/))      |
+| Transactional | Same DB transaction as the event insertion | Keep a persistent read model strongly consistent with the log — a failure rolls back both the projection and the event insertion (see: [Setting up persistent materialization models](/recipes/materialization-models/persistent/)) |
+| Async | Background job via `ActiveJob` | Update persistent read models for reports, analytics, or eventually consistent views (see: [Setting up persistent materialization models](/recipes/materialization-models/persistent/))                                             |
+
+{: .note }
+All three tiers are opt-in — register a projection at a tier only when you need its specific guarantee. Of the three, the consistency tier is **highly recommended**: it's the only place where an event can be rejected before it enters the log, so reach for it whenever the resulting state has business invariants worth enforcing.
+
+Because async projections run on `ActiveJob`, any standard Rails job backend works out of the box — `Sidekiq`, `Solid Queue`, or any other `ActiveJob`-compatible adapter — with no Funes-specific wiring. Standard `ActiveJob` scheduling options like `queue`, `wait`, and `wait_until` are accepted when you register an async projection.
+
+The sequence below traces a single `append` through all three tiers, including the rejection branches when the consistency or transactional steps fail:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant App as Application
+    participant Stream as Event stream
+    participant DB as Database
+    participant Job as ActiveJob queue
+
+    App->>Stream: append(event)
+    Stream->>Stream: Consistency projection — replay and validate the resulting state
+    alt invariants fail
+        Note over App: ❌ event.persisted? = false
+    else invariants hold
+        Stream->>DB: BEGIN transaction
+        Stream->>DB: INSERT event row
+        Stream->>Stream: Transactional projection — replay and validate the resulting state
+        Stream->>DB: Transactional projection — persist read model (upsert by default)
+        alt validation or persist fails
+            Stream->>DB: ROLLBACK ❌
+            Note over App: ❌ event.persisted? = false
+        else both succeed
+            Stream->>DB: COMMIT ✅
+            Stream->>Job: enqueue Async projections
+            Note over App: ✅ event.persisted? = true
+        end
+    end
 ```

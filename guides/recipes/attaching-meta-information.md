@@ -93,4 +93,5 @@ end
 
 Every event appended during that request will carry the values set in this `before_action`.
 
-> **Note:** `Funes::EventMetainformation` extends `ActiveSupport::CurrentAttributes`, which provides thread-isolated storage that is automatically reset between requests. It is safe to use with any multi-threaded server such as Puma.
+{: .note }
+`Funes::EventMetainformation` extends `ActiveSupport::CurrentAttributes`, which provides thread-isolated storage that is automatically reset between requests. It is safe to use with any multi-threaded server such as Puma.

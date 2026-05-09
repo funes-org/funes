@@ -38,11 +38,14 @@ State assumptions upfront. If the guide requires knowledge of another concept, s
 
 ## Notes & Warnings
 
-Use a `> **Note:**` blockquote for important asides. Reserve warnings for things that could cause real confusion or data loss.
+Use the just-the-docs `note` callout for important asides. Reserve warnings for things that could cause real confusion or data loss.
 
 ```markdown
-> **Note:** Funes does not recommend using non-primary key columns named `id`.
+{: .note }
+Funes does not recommend using non-primary key columns named `id`.
 ```
+
+For warnings, use the same syntax with `{: .warning }`.
 
 ## What to Avoid
 
