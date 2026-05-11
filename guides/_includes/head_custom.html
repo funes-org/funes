@@ -3,8 +3,17 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
 
 <style>
-  #site-nav .nav-list .nav-list-item > .nav-list { display: block; }
-  #site-nav .nav-list-expander { display: none; }
+  /* Sidebar children always visible — except for "Events the Rails way",
+     which keeps its default collapsible behavior. */
+  #site-nav .nav-list-item:not(:has(> a[href="/recipes/events-the-rails-way/"])) > .nav-list { display: block; }
+  #site-nav .nav-list-item:not(:has(> a[href="/recipes/events-the-rails-way/"])) > .nav-list-expander { display: none; }
+
+  /* Subtle gray background on code snippets. */
+  .highlight,
+  pre.highlight,
+  div.highlighter-rouge .highlight {
+    background-color: #f6f8fa;
+  }
 </style>
 
 {% if site.mixpanel_token and site.mixpanel_token != "" %}
