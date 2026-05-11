@@ -1,23 +1,15 @@
 ---
-title: Getting Started
+title: Getting started
 layout: default
-nav_order: 3
+nav_order: 2
 ---
 
-# Getting Started
+# Getting started
 {: .no_toc }
 
-After reading this guide, you will know how to add Funes to a Rails application and set up the database it needs to store events.
+You'll add Funes to a Rails application and generate a migration that creates the table it uses to store events. Two short steps.
 
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
-
----
-
-## Installation
+## Installing the gem
 
 Add Funes to your Gemfile:
 
@@ -25,15 +17,15 @@ Add Funes to your Gemfile:
 gem "funes-rails"
 ```
 
-Then run:
+Then install it:
 
 ```bash
 $ bundle install
 ```
 
-## Setting up the database
+## Adding the events table
 
-Funes stores all events in a single table called `event_entries`. To generate the migration that creates it, run:
+Funes stores all events in a single table called `event_entries`. Generate the migration that creates it:
 
 ```bash
 $ bin/rails generate funes:install
@@ -41,10 +33,18 @@ $ bin/rails generate funes:install
 
 This creates a migration file under `db/migrate/`. Open it and you'll see it sets up the `event_entries` table with the columns Funes needs: the event class, a stream identifier, the event attributes as JSON, a version number for concurrency control, and two timestamps — `created_at` for when the event was recorded and `occurred_at` for when it actually happened.
 
+{: .note }
+On Postgres, the migration uses `jsonb` instead of `json` for the attributes and metainformation columns — same data, but indexable and queryable inside the database.
+
 Now run the migration:
 
 ```bash
 $ bin/rails db:migrate
 ```
 
-Your database is ready. Funes will start appending events to `event_entries` as soon as you define your first event stream.
+Your events table is ready. Funes will start appending rows to `event_entries` as soon as you define your first event stream.
+
+## Where to next
+
+- The [Concepts](/concepts/) section explains events, streams, and projections — the three ideas Funes is built around.
+- The [Recipes](/recipes/) section shows how to apply them: appending from controllers, querying historically, shipping projections to S3, and more.

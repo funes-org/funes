@@ -11,7 +11,32 @@ The goal is warm professionalism: encouraging without being casual, authoritativ
 
 ## Guide Structure
 
-Every guide opens with a brief **"After reading this guide, you will know..."** list. This sets expectations and helps readers decide if they need the guide.
+Every page with multiple sections follows the same layout:
+
+```markdown
+---
+title: <Page title>
+layout: default
+parent: <Parent>
+nav_order: <N>
+---
+
+# <Page title>
+{: .no_toc }
+
+## Table of contents
+{: .no_toc .text-delta }
+
+1. TOC
+{:toc}
+
+---
+
+<First paragraph of content — open with the thesis or the framing,
+not a "what you'll learn" preamble.>
+```
+
+Don't lead with an "After reading this guide, you will know..." line. Open with the framing or thesis directly; the page title and the section headings already set expectations.
 
 Sections follow this flow:
 1. **Concept** — explain what something is in plain terms before showing code
@@ -38,11 +63,14 @@ State assumptions upfront. If the guide requires knowledge of another concept, s
 
 ## Notes & Warnings
 
-Use a `> **Note:**` blockquote for important asides. Reserve warnings for things that could cause real confusion or data loss.
+Use the just-the-docs `note` callout for important asides. Reserve warnings for things that could cause real confusion or data loss.
 
 ```markdown
-> **Note:** Funes does not recommend using non-primary key columns named `id`.
+{: .note }
+Funes does not recommend using non-primary key columns named `id`.
 ```
+
+For warnings, use the same syntax with `{: .warning }`.
 
 ## What to Avoid
 

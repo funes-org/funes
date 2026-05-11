@@ -17,8 +17,23 @@ nav_external_links:
 
 mixpanel_token: ""
 
+mermaid:
+  version: "10.9.1"
+
+callouts:
+  note:
+    title: Note
+    color: blue
+  important:
+    title: Important
+    color: purple
+  warning:
+    title: Warning
+    color: red
+
 exclude:
   - Gemfile
   - Gemfile.lock
   - README.md
+  - CLAUDE.md
   - _config_env.yml

@@ -1,13 +1,12 @@
 ---
-title: Testing Projections
+title: Testing projections
 layout: default
-nav_order: 7
+parent: Recipes
+nav_order: 8
 ---
 
-# Testing Projections
+# Testing projections
 {: .no_toc }
-
-After reading this guide, you will know how to test projection logic in isolation — one interpretation at a time — using the `Funes::ProjectionTestHelper`.
 
 ## Table of contents
 {: .no_toc .text-delta }
@@ -17,7 +16,7 @@ After reading this guide, you will know how to test projection logic in isolatio
 
 ---
 
-Projections are pure functions: given a state and an event, they return a new state. That makes them straightforward to test. To make developers life easier, Funes ships `ProjectionTestHelper` — a set of methods that let you exercise each part of a projection independently, without replaying an entire event stream.
+Projections are pure functions: given a state and an event, they return a new state. That makes them straightforward to test — one interpretation at a time, without replaying an entire event stream. `Funes::ProjectionTestHelper` ships a small set of methods for exactly that, letting you exercise each part of a projection in isolation.
 
 ## Setup
 
@@ -31,6 +30,17 @@ end
 ```
 
 That gives you three methods: `interpret_event_based_on`, `build_initial_state_based_on`, and `apply_final_state_based_on`.
+
+The helper itself is a plain Ruby module — no test-framework-specific machinery — so the same `include` works in an RSpec example group:
+
+```ruby
+# spec/projections/outstanding_balance_projection_spec.rb
+RSpec.describe OutstandingBalanceProjection do
+  include Funes::ProjectionTestHelper
+end
+```
+
+The examples below use minitest assertions, but the helper calls themselves are identical under RSpec — swap in `expect(...)` matchers and you're done.
 
 ## Testing event interpretations
 
@@ -133,7 +143,7 @@ end
 
 ## Putting it together
 
-A well-structured projection test file mirrors the projection's structure: one describe block per event type, plus blocks for `initial_state` and `final_state` when they exist:
+The helper hands you three primitives — interpret an event, build the initial state, apply the final state — and stays out of the way after that. How you organize your tests is entirely up to you and the conventions your team already follows. The example below mirrors the projection's structure (one test per event type, plus tests for the initial and final state blocks), but feel free to split across files, group with `describe` blocks, name tests differently, or arrange them in whatever shape reads best:
 
 ```ruby
 # test/projections/outstanding_balance_projection_test.rb
@@ -169,4 +179,4 @@ class OutstandingBalanceProjectionTest < ActiveSupport::TestCase
 end
 ```
 
-To understand what a projection does and how to write one, see the [Projections](core-concepts/projections) guide.
+To understand what a projection does and how to write one, see the [Projection](/concepts/projection/) concept.

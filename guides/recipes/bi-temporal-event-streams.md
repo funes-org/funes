@@ -1,13 +1,12 @@
 ---
-title: Temporal Queries
+title: Building bi-temporal event streams
 layout: default
-nav_order: 6
+parent: Recipes
+nav_order: 7
 ---
 
-# Temporal Queries
+# Building bi-temporal event streams
 {: .no_toc }
-
-After reading this guide, you will know how to query your event streams at any point in time — both by when events were recorded and by when they actually occurred.
 
 ## Table of contents
 {: .no_toc .text-delta }
@@ -17,7 +16,9 @@ After reading this guide, you will know how to query your event streams at any p
 
 ---
 
-Event sourcing preserves the full history of your system, which unlocks a class of questions that a mutable database simply cannot answer. Funes tracks two independent temporal dimensions, giving you full [**bitemporal**](https://martinfowler.com/articles/bitemporal-history.html) history:
+Most systems treat time as something that happens *to* the data — rows get updated, timestamps stick, and history shows up as a side effect at best. Event sourcing inverts that relationship: **time becomes a first-class dimension of the model**, queryable on its own terms. Audit trails stop being a separate ledger you maintain by hand; state reconstructions stop being painful archaeology; debugging stops requiring a time machine you don't have. Once you can model *when* alongside *what*, whole categories of problems collapse into a single query — and the architecture shifts with it: you start modeling what *happened* instead of what *is*, the canonical store is an append-only log instead of a mutable table, and views of the system become queries over time rather than snapshots cached in place.
+
+Funes leans into this with full [**bitemporal**](https://martinfowler.com/articles/bitemporal-history.html) history. Two independent temporal dimensions are exposed by every stream (Martin Fowler's article is the canonical reference if you want the conceptual background):
 
 | Dimension | Parameter | Stored in | Question it answers |
 |:----------|:----------|:----------|:--------------------|
@@ -56,7 +57,7 @@ class SalaryEventStream < Funes::EventStream
   actual_time_attribute :at
 end
 
-# The :at attribute value is used as occurred_at automatically
+# The :at attribute value is used as occurred_at
 stream.append(Salary::Raised.new(amount: 6500, at: Time.new(2025, 2, 15)))
 ```
 
@@ -83,32 +84,6 @@ stream.projected_with(SalaryProjection, as_of: Time.new(2025, 3, 1), at: Time.ne
 
 This is invaluable for audits, corrections, and compliance scenarios where you need to reconstruct the exact state a decision was made from.
 
-## When there is nothing to project
-
-`projected_with` mirrors `ActiveRecord#find`: if there are no events to replay, it raises `ActiveRecord::RecordNotFound`. This happens whenever the stream is unknown or empty, and also whenever `as_of:` or `at:` narrows the window to zero events.
-
-```ruby
-SalaryEventStream.for("unknown-id").projected_with(SalaryProjection)
-# => raises ActiveRecord::RecordNotFound
-
-stream = SalaryEventStream.for("sally-123")
-stream.projected_with(SalaryProjection, at: Time.new(1999, 1, 1))
-# => raises ActiveRecord::RecordNotFound if every event occurred after Jan 1, 1999
-```
-
-The payoff is in your controllers: because Rails already maps `ActiveRecord::RecordNotFound` to a 404 response, a `show` action that calls `projected_with` renders the host app's 404 page without any extra rescue code.
-
-```ruby
-# app/controllers/salaries_controller.rb
-class SalariesController < ApplicationController
-  def show
-    @salary = SalaryEventStream.for(params[:id]).projected_with(SalaryProjection)
-  end
-end
-```
-
-Funes also writes a `Rails.logger.info` line before raising, so your logs record which stream, projection, and filter values led to the empty result.
-
 ## Temporal context in projections
 
 The temporal reference is not uniform across all interpretation hooks — it depends on which hook you are in.
@@ -123,7 +98,7 @@ interpretation_for Salary::Raised do |state, event, at|
 end
 ```
 
-The **query's temporal reference** — what you passed as `at:` to `projected_with` — flows into `initial_state` and `final_state` instead. These hooks are called once, before and after all events are replayed, and are the right place for calculations relative to the query's point in time:
+The **state's temporal reference** — what you passed as `at:` to `projected_with` — flows into `initial_state` and `final_state` instead. These hooks are called once, before and after all events are replayed, and are the right place for calculations relative to the query's point in time:
 
 ```ruby
 final_state do |state, at|
