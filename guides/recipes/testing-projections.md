@@ -2,7 +2,7 @@
 title: Testing projections
 layout: default
 parent: Recipes
-nav_order: 6
+nav_order: 8
 ---
 
 # Testing projections
@@ -32,6 +32,17 @@ end
 ```
 
 That gives you three methods: `interpret_event_based_on`, `build_initial_state_based_on`, and `apply_final_state_based_on`.
+
+The helper itself is a plain Ruby module — no test-framework-specific machinery — so the same `include` works in an RSpec example group:
+
+```ruby
+# spec/projections/outstanding_balance_projection_spec.rb
+RSpec.describe OutstandingBalanceProjection do
+  include Funes::ProjectionTestHelper
+end
+```
+
+The examples below use minitest assertions, but the helper calls themselves are identical under RSpec — swap in `expect(...)` matchers and you're done.
 
 ## Testing event interpretations
 
@@ -134,7 +145,7 @@ end
 
 ## Putting it together
 
-A well-structured projection test file mirrors the projection's structure: one describe block per event type, plus blocks for `initial_state` and `final_state` when they exist:
+The helper hands you three primitives — interpret an event, build the initial state, apply the final state — and stays out of the way after that. How you organize your tests is entirely up to you and the conventions your team already follows. The example below mirrors the projection's structure (one test per event type, plus tests for the initial and final state blocks), but feel free to split across files, group with `describe` blocks, name tests differently, or arrange them in whatever shape reads best:
 
 ```ruby
 # test/projections/outstanding_balance_projection_test.rb

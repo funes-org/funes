@@ -19,11 +19,11 @@ After reading this guide, you will know how to build a virtual projection — on
 
 ---
 
-A virtual materialization model is computed on the fly. Nothing is written anywhere — every call to `projected_with` rebuilds the state from the underlying events. That makes virtual projections a natural fit for consistency checks (validating an event's effect on state before it lands) and for ad-hoc queries where you don't need a queryable read table.
+A virtual materialization model is computed on the fly - nothing is written anywhere. That makes virtual projections a natural fit for consistency checks (validating an event's effect on state before it lands) and for ad-hoc queries where you don't need a queryable read table.
 
-## Defining the model
+## Defining the projection's materialization model
 
-Virtual models are plain `ActiveModel` classes. Declare attributes and validations the same way you would on any Rails model:
+Materialization models used on virtual projections are plain `ActiveModel` classes. `ActiveModel` is a well-established Rails convention with a stable, predictable API, and Funes expects nothing beyond it — declare attributes and validations exactly as the framework already [documents](https://guides.rubyonrails.org/active_model_basics.html):
 
 ```ruby
 # app/models/outstanding_balance.rb
@@ -38,11 +38,13 @@ class OutstandingBalance
 end
 ```
 
-No table, no primary key, no migration. The class only needs to expose `assign_attributes`, `attributes`, `valid?`, and `errors` — all standard `ActiveModel::Model` machinery.
+No table, no primary key, no migration. To replay events, the virtual projection only needs to read and write attributes (`attributes`, `assign_attributes`) and check whether the resulting state is valid (`valid?`, `errors`). `ActiveModel::Model` and `ActiveModel::Attributes` provide every one of these.
 
-## Wiring it to a projection
+The projection's derivative state will be an instance of this model. And again, without any side effect.
 
-Point a projection at the model with `materialization_model`:
+## Wiring materialization model to the projection
+
+Tell the projection which model to materialize with `materialization_model`:
 
 ```ruby
 # app/projections/virtual_outstanding_balance_projection.rb
@@ -62,12 +64,15 @@ class VirtualOutstandingBalanceProjection < Funes::Projection
 end
 ```
 
-Because nothing is persisted, every call to `DebtEventStream.for(idx).projected_with(VirtualOutstandingBalanceProjection)` replays the events from scratch and returns a fresh `OutstandingBalance` instance.
+Because nothing is persisted, every replay walks the events from scratch and returns a fresh `OutstandingBalance` instance.
 
 ## When to reach for it
 
 - **Consistency checks** — pair a virtual projection with `consistency_projection` on an event stream so an invalid resulting state rejects the event before it is persisted. The validation rules on the model carry the invariants.
 - **One-off queries** — when the access pattern doesn't justify a read table, a virtual projection is faster to set up and has zero schema cost.
 - **Prototyping** — try out an interpretation shape without committing to a migration.
+
+{: .note }
+The lack of side effects is exactly what makes a virtual projection perfect to be the stream's `consistency_projection`. Funes projects the resulting state through it and then calls `.valid?` at the resultant state — that single check is the gate that decides whether the new event's append goes through.
 
 When the access pattern does justify a stored representation, switch to a [Persistent](/recipes/materialization-models/persistent/) materialization model — backed by the default database table or a custom destination.
