@@ -8,8 +8,6 @@ nav_order: 5
 # Atomic writes
 {: .no_toc }
 
-After reading this guide, you will know when to reach for `append!` instead of `append`, and how to use it to keep an event in lockstep with other writes inside a transaction your code already controls.
-
 ## Table of contents
 {: .no_toc .text-delta }
 

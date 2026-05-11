@@ -9,8 +9,6 @@ nav_order: 1
 # Virtual projections
 {: .no_toc }
 
-After reading this guide, you will know how to build a virtual projection — one that materializes state in memory only, recomputed from events on demand and never written anywhere.
-
 ## Table of contents
 {: .no_toc .text-delta }
 

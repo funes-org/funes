@@ -8,8 +8,6 @@ nav_order: 7
 # Building bi-temporal event streams
 {: .no_toc }
 
-After reading this guide, you will know how to query your event streams at any point in time — both by when events were recorded and by when they actually occurred.
-
 ## Table of contents
 {: .no_toc .text-delta }
 

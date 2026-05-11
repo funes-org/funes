@@ -9,8 +9,6 @@ nav_order: 2
 # Persistent projections
 {: .no_toc }
 
-After reading this guide, you will know how to set up a persistent projection — one that writes its state to a durable store, either in a database table that follows the framework's conventions (the default), or in any custom destination you supply a persist method for.
-
 ## Table of contents
 {: .no_toc .text-delta }
 

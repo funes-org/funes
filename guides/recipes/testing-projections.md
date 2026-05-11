@@ -8,8 +8,6 @@ nav_order: 8
 # Testing projections
 {: .no_toc }
 
-After reading this guide, you will know how to test projection logic in isolation — one interpretation at a time — using the `Funes::ProjectionTestHelper`.
-
 ## Table of contents
 {: .no_toc .text-delta }
 
@@ -18,7 +16,7 @@ After reading this guide, you will know how to test projection logic in isolatio
 
 ---
 
-Projections are pure functions: given a state and an event, they return a new state. That makes them straightforward to test. To make developers life easier, Funes ships `ProjectionTestHelper` — a set of methods that let you exercise each part of a projection independently, without replaying an entire event stream.
+Projections are pure functions: given a state and an event, they return a new state. That makes them straightforward to test — one interpretation at a time, without replaying an entire event stream. `Funes::ProjectionTestHelper` ships a small set of methods for exactly that, letting you exercise each part of a projection in isolation.
 
 ## Setup
 

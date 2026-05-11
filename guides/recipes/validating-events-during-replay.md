@@ -8,8 +8,6 @@ nav_order: 3
 # Validating events during replay
 {: .no_toc }
 
-After reading this guide, you will know how to programmatically attach validation errors to an event at interpretation time — while both the incoming event and the current materialization state are still visible to your code, before Funes' default validation step runs.
-
 ## Table of contents
 {: .no_toc .text-delta }
 

@@ -8,8 +8,6 @@ nav_order: 6
 # Attaching meta information to events
 {: .no_toc }
 
-After reading this guide, you will know how to attach contextual data — such as the acting user and the current request — to every event your application records.
-
 ## Table of contents
 {: .no_toc .text-delta }
 

@@ -11,7 +11,32 @@ The goal is warm professionalism: encouraging without being casual, authoritativ
 
 ## Guide Structure
 
-Every guide opens with a brief **"After reading this guide, you will know..."** list. This sets expectations and helps readers decide if they need the guide.
+Every page with multiple sections follows the same layout:
+
+```markdown
+---
+title: <Page title>
+layout: default
+parent: <Parent>
+nav_order: <N>
+---
+
+# <Page title>
+{: .no_toc }
+
+## Table of contents
+{: .no_toc .text-delta }
+
+1. TOC
+{:toc}
+
+---
+
+<First paragraph of content — open with the thesis or the framing,
+not a "what you'll learn" preamble.>
+```
+
+Don't lead with an "After reading this guide, you will know..." line. Open with the framing or thesis directly; the page title and the section headings already set expectations.
 
 Sections follow this flow:
 1. **Concept** — explain what something is in plain terms before showing code
