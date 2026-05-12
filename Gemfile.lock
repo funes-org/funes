@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    funes-rails (0.2.3)
+    funes-rails (0.2.4)
       rails (>= 7.2)
 
 GEM
