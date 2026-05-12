@@ -1,112 +1,111 @@
 module Funes
-  # Test helper for testing projections in isolation.
+  # Test helper for exercising projections in isolation.
   #
-  # Include this module in your test classes to access helper methods that allow you to test
-  # individual projection interpretations without needing to process entire event streams.
+  # Include this module in your test class to access methods that interpret a
+  # single event, build the initial state, or apply the final state of a
+  # projection — without processing an entire event stream.
   #
-  # @example Include in your test
+  # Bind the projection class once with the +projection+ macro and then call
+  # {#interpret}, {#initial_state}, or {#final_state} without repeating it.
+  #
+  # @example Bind the projection at the class level
   #   class InventorySnapshotProjectionTest < ActiveSupport::TestCase
   #     include Funes::ProjectionTestHelper
+  #     projection InventorySnapshotProjection
   #
   #     test "receiving items increases quantity on hand" do
-  #       initial_state = InventorySnapshot.new(quantity_on_hand: 10)
+  #       state = InventorySnapshot.new(quantity_on_hand: 10)
   #       event = Inventory::ItemReceived.new(quantity: 5, unit_cost: 9.99)
   #
-  #       result = interpret_event_based_on(InventorySnapshotProjection, event, initial_state)
+  #       result = interpret(event, given: state)
   #
   #       assert_equal 15, result.quantity_on_hand
   #     end
   #   end
+  #
+  # @example Override the bound projection per call
+  #   interpret(event, given: state, projection: AnotherProjection)
   module ProjectionTestHelper
-    # Test a single event interpretation in isolation.
+    extend ActiveSupport::Concern
+
+    included do
+      class_attribute :projection_under_test, instance_accessor: false
+    end
+
+    class_methods do
+      # Binds the projection class exercised by this test class. Subclasses
+      # inherit the binding and may override it with another call to
+      # +projection+.
+      #
+      # @param [Class<Funes::Projection>] projection_class
+      # @return [void]
+      def projection(projection_class)
+        self.projection_under_test = projection_class
+      end
+    end
+
+    # Interprets a single event in isolation and returns the resulting state.
     #
-    # This method extracts and executes a single interpretation block from a projection,
-    # allowing you to test how specific events transform state without processing entire
-    # event streams.
+    # If the event carries an +occurred_at+, it takes precedence over +at+ —
+    # mirroring how {Funes::Projection} replays persisted events. A +Date+
+    # passed as +at+ is coerced to its +beginning_of_day+.
     #
-    # @param [Class<Funes::Projection>] projection_class The projection class being tested.
-    # @param [Funes::Event] event_instance The event to interpret.
-    # @param [ActiveModel::Model, ActiveRecord::Base] previous_state The state before applying the event.
-    # @param [Time] at The temporal reference point. Defaults to Time.current.
-    # @return [ActiveModel::Model, ActiveRecord::Base] The new state after applying the interpretation.
+    # @param [Funes::Event] event The event to interpret.
+    # @param [ActiveModel::Model, ActiveRecord::Base] given The state before applying the event.
+    # @param [Time, Date] at The temporal reference point. Defaults to +Time.current+.
+    # @param [Class<Funes::Projection>, nil] projection Overrides the class bound via +projection+.
+    # @return [ActiveModel::Model, ActiveRecord::Base] The state after the interpretation.
     #
-    # @example Test a single interpretation
-    #   initial_state = OrderSnapshot.new(total: 100)
-    #   event = Order::ItemAdded.new(amount: 50)
-    #
-    #   result = interpret_event_based_on(OrderSnapshotProjection, event, initial_state)
-    #
+    # @example
+    #   result = interpret(Order::ItemAdded.new(amount: 50), given: OrderSnapshot.new(total: 100))
     #   assert_equal 150, result.total
-    #
-    # @example Test with validations
-    #   state = InventorySnapshot.new(quantity_on_hand: 5)
-    #   event = Inventory::ItemShipped.new(quantity: 10)
-    #
-    #   result = interpret_event_based_on(InventorySnapshotProjection, event, state)
-    #
-    #   assert_equal -5, result.quantity_on_hand
-    #   refute result.valid?
-    def interpret_event_based_on(projection_class, event_instance, previous_state, at = Time.current)
-      at = at.beginning_of_day if at.is_a?(Date) && !at.is_a?(Time)
-      event_at = event_instance.occurred_at || at
-      projection_class.instance_variable_get(:@interpretations)[event_instance.class]
-                      .call(previous_state, event_instance, event_at)
+    def interpret(event, given:, at: Time.current, projection: nil)
+      projection_class = resolve_projection(projection)
+      coerced_at = coerce_at(at)
+      event_at = event.occurred_at || coerced_at
+      projection_class.instance_variable_get(:@interpretations)[event.class]
+                      .call(given, event, event_at)
     end
 
-    # Test an initial_state block in isolation.
+    # Builds the initial state of the bound projection.
     #
-    # This method extracts and executes the initial_state block from a projection,
-    # allowing you to test how the projection builds its starting state without
-    # processing entire event streams.
+    # @param [Time, Date] at The temporal reference point. Defaults to +Time.current+.
+    # @param [Class<Funes::Projection>, nil] projection Overrides the class bound via +projection+.
+    # @return [ActiveModel::Model, ActiveRecord::Base] The state produced by the +initial_state+ block.
     #
-    # @param [Class<Funes::Projection>] projection_class The projection class being tested.
-    # @param [Time] at The temporal reference point. Defaults to Time.current.
-    # @return [ActiveModel::Model, ActiveRecord::Base] The initial state produced by the projection.
-    #
-    # @example Test initial state construction
-    #   result = build_initial_state_based_on(InventorySnapshotProjection)
-    #
-    #   assert_equal 0, result.quantity_on_hand
-    #
-    # @example Test with a specific timestamp
-    #   at = Time.new(2023, 5, 10)
-    #
-    #   result = build_initial_state_based_on(InventorySnapshotProjection, at)
-    #
-    #   assert_equal at, result.created_at
-    def build_initial_state_based_on(projection_class, at = Time.current)
+    # @example
+    #   assert_equal 0, initial_state.quantity_on_hand
+    def initial_state(at: Time.current, projection: nil)
+      projection_class = resolve_projection(projection)
       projection_class.instance_variable_get(:@interpretations)[:init]
-                      .call(projection_class.instance_variable_get(:@materialization_model), at)
+                      .call(projection_class.instance_variable_get(:@materialization_model), coerce_at(at))
     end
 
-    # Test a final_state block in isolation.
+    # Applies the final-state transformation of the bound projection.
     #
-    # This method extracts and executes the final_state block from a projection,
-    # allowing you to test how the projection transforms state after all event
-    # interpretations have been applied.
+    # @param [ActiveModel::Model, ActiveRecord::Base] given The state to finalize.
+    # @param [Time, Date] at The temporal reference point. Defaults to +Time.current+.
+    # @param [Class<Funes::Projection>, nil] projection Overrides the class bound via +projection+.
+    # @return [ActiveModel::Model, ActiveRecord::Base] The state after the +final_state+ block.
     #
-    # @param [Class<Funes::Projection>] projection_class The projection class being tested.
-    # @param [ActiveModel::Model, ActiveRecord::Base] previous_state The state before applying the final transformation.
-    # @param [Time] at The temporal reference point. Defaults to Time.current.
-    # @return [ActiveModel::Model, ActiveRecord::Base] The final state after applying the transformation.
-    #
-    # @example Test final state transformation
-    #   state = OrderSnapshot.new(total: 100, item_count: 3)
-    #
-    #   result = apply_final_state_based_on(OrderSnapshotProjection, state)
-    #
-    #   assert_equal 33.33, result.average_item_price
-    #
-    # @example Test with a specific timestamp
-    #   state = InventorySnapshot.new(quantity_on_hand: 10)
-    #   at = Time.new(2023, 5, 10)
-    #
-    #   result = apply_final_state_based_on(InventorySnapshotProjection, state, at)
-    #
-    #   assert_equal at, result.finalized_at
-    def apply_final_state_based_on(projection_class, previous_state, at = Time.current)
+    # @example
+    #   assert_equal 33.33, final_state(given: OrderSnapshot.new(total: 100, item_count: 3)).average_item_price
+    def final_state(given:, at: Time.current, projection: nil)
+      projection_class = resolve_projection(projection)
       projection_class.instance_variable_get(:@interpretations)[:final]
-                      .call(previous_state, at)
+                      .call(given, coerce_at(at))
     end
+
+    private
+      def resolve_projection(explicit)
+        explicit || self.class.projection_under_test ||
+          raise(ArgumentError,
+                "No projection bound. Declare `projection ProjectionClass` in your test class " \
+                "or pass `projection:` explicitly.")
+      end
+
+      def coerce_at(at)
+        at.is_a?(Date) && !at.is_a?(Time) ? at.beginning_of_day : at
+      end
   end
 end
