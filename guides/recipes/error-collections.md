@@ -34,7 +34,7 @@ event.own_errors.full_messages
 # => ["Total must be greater than 0"]
 ```
 
-See [Validating events during replay](/recipes/validating-events-during-replay/) for how a consistency projection uses the interpretation-time path to reject an event explicitly.
+See [Validating events in interpretation time](/recipes/validating-events-in-interpretation-time/) for how a consistency projection uses the interpretation-time path to reject an event explicitly.
 
 ## `state_errors` — consistency-projection failures
 

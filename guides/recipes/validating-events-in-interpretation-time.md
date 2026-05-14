@@ -1,11 +1,11 @@
 ---
-title: Validating events during replay
+title: Validating events in interpretation time
 layout: default
 parent: Recipes
 nav_order: 3
 ---
 
-# Validating events during replay
+# Validating events in interpretation time
 {: .no_toc }
 
 ## Table of contents
