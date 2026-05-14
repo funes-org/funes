@@ -83,7 +83,7 @@ By default, a projection silently ignores events it has no `interpretation_for`.
 
 ```ruby
 class OutstandingBalanceProjection < Funes::Projection
-  raise_on_unknown_events
+  strict_mode!
   # ...
 end
 ```

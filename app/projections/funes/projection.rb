@@ -158,9 +158,9 @@ module Funes
       #
       # @example
       #   class YourProjection < Funes::Projection
-      #     raise_on_unknown_events
+      #     strict_mode!
       #   end
-      def raise_on_unknown_events
+      def strict_mode!
         @throws_on_unknown_events = true
       end
 
