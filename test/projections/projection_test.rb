@@ -67,7 +67,7 @@ class ProjectionTest < ActiveSupport::TestCase
 
     it "raises an exception when processing unknown events with strict configuration enabled" do
       local_deposit_projection_that_does_not_ignore_unknown_events = Class.new(Funes::Projection) do
-        raise_on_unknown_events
+        strict_mode!
         materialization_model Examples::Deposit::Consistency
         interpretation_for Examples::DepositEvents::Created do |state, _event, _at| state end
         interpretation_for Examples::DepositEvents::Withdrawn do |state, _event, _at| state end

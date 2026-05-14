@@ -2,12 +2,12 @@ module Funes
   # Raised when a projection encounters an event type it doesn't know how to interpret.
   #
   # By default, projections silently ignore unknown events. This error is only raised when
-  # a projection is configured with `raise_on_unknown_events`, which enforces strict event
+  # a projection is configured with `strict_mode!`, which enforces strict event
   # handling to catch missing interpretation blocks during development.
   #
   # @example Configure a projection to raise on unknown events
   #   class StrictProjection < Funes::Projection
-  #     raise_on_unknown_events
+  #     strict_mode!
   #
   #     interpretation_for OrderPlaced do |state, event, _at|
   #       # ...
