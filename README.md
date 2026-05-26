@@ -103,6 +103,8 @@ Funes gives you fine-grained control over when and how projections run:
 
 Guides and full API documentation are available at [docs.funes.org](https://docs.funes.org).
 
+For a hands-on example, see the [Funes Workshop](https://github.com/viniciusalmeida/funes_workshop) — a small Rails app that models a debt lifecycle (loan issuance, daily interest accrual, and payments) to demonstrate how to use Events, Streams, and Projections in a realistic financial domain.
+
 ## Performance
 
 Precise benchmarks are notoriously hard to pin down: workloads vary, and absolute numbers depend heavily on hardware, configuration, and the shape of the data. So treat the figures we publish as directional rather than definitive.
