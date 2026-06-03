@@ -166,33 +166,24 @@ module Funes
 
       # @!visibility private
       def process_events(events_collection, at: nil, consistency: false)
-        new(self.instance_variable_get(:@interpretations),
-            self.instance_variable_get(:@materialization_model),
-            self.instance_variable_get(:@throws_on_unknown_events),
-            self.instance_variable_get(:@persist_method))
-          .process_events(events_collection, at: at, consistency: consistency)
+        new.process_events(events_collection, at: at, consistency: consistency)
       end
 
       # @!visibility private
       def materialize!(events_collection, idx, at: nil)
-        new(self.instance_variable_get(:@interpretations),
-            self.instance_variable_get(:@materialization_model),
-            self.instance_variable_get(:@throws_on_unknown_events),
-            self.instance_variable_get(:@persist_method))
-          .materialize!(events_collection, idx, at: at)
+        new.materialize!(events_collection, idx, at: at)
       end
     end
 
     # @!visibility private
-    def initialize(interpretations, materialization_model, throws_on_unknown_events, persist_method = nil)
-      @interpretations = interpretations
-      @materialization_model = materialization_model
+    def initialize
+      @interpretations = self.class.instance_variable_get(:@interpretations)
+      @materialization_model = self.class.instance_variable_get(:@materialization_model)
+      @throws_on_unknown_events = self.class.instance_variable_get(:@throws_on_unknown_events)
+      @persist_method = self.class.instance_variable_get(:@persist_method)
+
       raise Funes::UnknownMaterializationModel,
             "There is no materialization model configured on #{self.class.name}" unless @materialization_model.present?
-
-
-      @throws_on_unknown_events = throws_on_unknown_events
-      @persist_method = persist_method
     end
 
     # @!visibility private
