@@ -1,6 +1,7 @@
 require "funes/version"
 require "funes/configuration"
 require "funes/inspection"
+require "funes/associations"
 require "funes/event_metainformation_builder"
 require "funes/invalid_event_metainformation"
 require "funes/conflicting_actual_time_error"
