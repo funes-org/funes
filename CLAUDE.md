@@ -37,9 +37,13 @@ untouched.
      `[Unreleased]` to `compare/vX.Y.Z...HEAD` and add
      `[X.Y.Z]: https://github.com/funes-org/funes/compare/vPREV...vX.Y.Z`.
 3. Commit both files together as `Bump version to X.Y.Z`.
-4. Run `bundle exec rake release` (from `bundler/gem_tasks`): it builds the
-   gem, creates the `vX.Y.Z` tag, pushes the tag and the commit to GitHub, and
-   pushes the gem to RubyGems.
+4. From the `main` branch of the canonical repository, run
+   `bundle exec rake release` (from `bundler/gem_tasks`): it builds the gem,
+   creates the `vX.Y.Z` tag, pushes the tag and the commit to the branch's
+   remote, and pushes the gem to RubyGems. The `release:guard_canonical_remote`
+   task (defined in the `Rakefile`) aborts the release when that remote is not
+   `funes-org/funes`, so an accidental release from a fork fails before
+   anything is pushed.
 
 Never tag or publish a release whose changelog section is missing or out of
 sync with what actually shipped.
