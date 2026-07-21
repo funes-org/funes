@@ -10,11 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- `Funes::Projection` now sources its configuration during `initialize`, making
-  projection instances self-contained ([#69](https://github.com/funes-org/funes/pull/69))
-
 ## [0.2.5] - 2026-05-14
 
 ### Changed
