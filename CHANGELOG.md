@@ -12,8 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `references` macro for events — declare that an event references a model
-  (e.g. `references :customer`) and read the record back at interpretation
+- `refers_to` macro for events — declare that an event references a model
+  (e.g. `refers_to :customer`) and read the record back at interpretation
   time. Only the record's id is stored in the event payload; the reader loads
   the record lazily. Supports `class_name:`, `foreign_key:`, and `required:`
   ([#70](https://github.com/funes-org/funes/pull/70))

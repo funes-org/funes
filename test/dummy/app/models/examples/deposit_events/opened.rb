@@ -1,6 +1,6 @@
 module Examples::DepositEvents
   class Opened < Funes::Event
-    references :customer, class_name: "Examples::Customer"
+    refers_to :customer, class_name: "Examples::Customer"
 
     attribute :value, :decimal
     attribute :effective_date, :date

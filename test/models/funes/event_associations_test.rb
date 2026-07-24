@@ -5,15 +5,15 @@ class Funes::EventAssociationsTest < ActiveSupport::TestCase
   extend Minitest::Spec::DSL
 
   class ReferencingEvent < Funes::Event
-    references :customer, class_name: "Examples::Customer"
+    refers_to :customer, class_name: "Examples::Customer"
   end
 
   class RequiredReferenceEvent < Funes::Event
-    references :owner, class_name: "Examples::Customer", required: true
+    refers_to :owner, class_name: "Examples::Customer", required: true
   end
 
   class CustomForeignKeyEvent < Funes::Event
-    references :account, class_name: "Examples::Customer", foreign_key: :account_uuid
+    refers_to :account, class_name: "Examples::Customer", foreign_key: :account_uuid
   end
 
   let(:customer) { Examples::Customer.create!(name: "Ada") }
@@ -107,7 +107,7 @@ class Funes::EventAssociationsTest < ActiveSupport::TestCase
     it "raises ArgumentError, matching ActiveRecord's behavior" do
       error = assert_raises(ArgumentError) do
         Class.new(Funes::Event) do
-          references :customer, class_name: Examples::Customer
+          refers_to :customer, class_name: Examples::Customer
         end
       end
 

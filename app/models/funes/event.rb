@@ -38,12 +38,12 @@ module Funes
   #
   # ## Associating Events With Other Models
   #
-  # Use +references+ to relate an event to another model. Only the referenced record's id is stored
+  # Use +refers_to+ to relate an event to another model. Only the referenced record's id is stored
   # in the event payload; the record itself is loaded lazily and is readable at interpretation time:
   #
   # @example Reference another model and read it in an interpretation
   #   class Order::Placed < Funes::Event
-  #     references :customer
+  #     refers_to :customer
   #     attribute :total, :decimal
   #   end
   #

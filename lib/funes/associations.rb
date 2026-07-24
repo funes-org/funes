@@ -4,7 +4,7 @@ module Funes
   # Declares references from an event to other models, accessible at interpretation time.
   #
   # Events are immutable facts serialized as plain JSON in the +props+ column, so an event cannot
-  # store another model directly. The +references+ macro stores only the referenced record's id as a
+  # store another model directly. The +refers_to+ macro stores only the referenced record's id as a
   # regular event attribute (and therefore in +props+), while exposing a reader that lazily loads the
   # record by id and a writer that accepts the record itself.
   #
@@ -15,7 +15,7 @@ module Funes
   # == Example
   #
   #   class Deposit::Opened < Funes::Event
-  #     references :customer
+  #     refers_to :customer
   #   end
   #
   #   event = Deposit::Opened.new(customer: some_customer)
@@ -32,15 +32,15 @@ module Funes
   #
   # * +class_name+ - The name of the referenced class, as a string (or symbol) — passing the class
   #   itself raises +ArgumentError+, as in Active Record. Defaults to the camelized reference name
-  #   (e.g. +references :customer+ infers +"Customer"+). Resolved lazily, so it plays well with
+  #   (e.g. +refers_to :customer+ infers +"Customer"+). Resolved lazily, so it plays well with
   #   autoloading and namespaced constants.
   # * +foreign_key+ - The attribute that stores the id. Defaults to +"#{name}_id"+.
   # * +required+ - When +true+, adds a presence validation on the foreign key so an event without the
   #   reference is invalid and will not be persisted. Defaults to +false+ (ActiveRecord-style).
   #
   #   class Loan::Granted < Funes::Event
-  #     references :borrower, class_name: "User", required: true
-  #     references :account, foreign_key: :account_uuid
+  #     refers_to :borrower, class_name: "User", required: true
+  #     refers_to :account, foreign_key: :account_uuid
   #   end
   module Associations
     extend ActiveSupport::Concern
@@ -54,7 +54,7 @@ module Funes
       # @param foreign_key [Symbol, String, nil] Attribute storing the id. Defaults to +"#{name}_id"+.
       # @param required [Boolean] Whether to validate presence of the foreign key. Defaults to +false+.
       # @return [void]
-      def references(name, class_name: nil, foreign_key: nil, required: false)
+      def refers_to(name, class_name: nil, foreign_key: nil, required: false)
         if class_name.instance_of?(Class)
           raise ArgumentError, "A class was passed to `:class_name` but we are expecting a string."
         end
