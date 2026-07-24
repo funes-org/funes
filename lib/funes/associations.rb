@@ -30,7 +30,8 @@ module Funes
   #
   # == Options
   #
-  # * +class_name+ - The name of the referenced class. Defaults to the camelized reference name
+  # * +class_name+ - The name of the referenced class, as a string (or symbol) — passing the class
+  #   itself raises +ArgumentError+, as in Active Record. Defaults to the camelized reference name
   #   (e.g. +references :customer+ infers +"Customer"+). Resolved lazily, so it plays well with
   #   autoloading and namespaced constants.
   # * +foreign_key+ - The attribute that stores the id. Defaults to +"#{name}_id"+.
@@ -48,11 +49,16 @@ module Funes
       # Declares a reference to another model. See {Funes::Associations} for details.
       #
       # @param name [Symbol] The reference name (defines +name+ / +name=+ accessors).
-      # @param class_name [String, nil] Name of the referenced class. Defaults to +name.camelize+.
+      # @param class_name [String, Symbol, nil] Name of the referenced class (not the class itself).
+      #   Defaults to +name.camelize+.
       # @param foreign_key [Symbol, String, nil] Attribute storing the id. Defaults to +"#{name}_id"+.
       # @param required [Boolean] Whether to validate presence of the foreign key. Defaults to +false+.
       # @return [void]
       def references(name, class_name: nil, foreign_key: nil, required: false)
+        if class_name.instance_of?(Class)
+          raise ArgumentError, "A class was passed to `:class_name` but we are expecting a string."
+        end
+
         fk        = (foreign_key || "#{name}_id").to_sym
         klass_str = (class_name || name.to_s.camelize).to_s
 

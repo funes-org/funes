@@ -103,6 +103,18 @@ class Funes::EventAssociationsTest < ActiveSupport::TestCase
     end
   end
 
+  describe "class_name: given as a class" do
+    it "raises ArgumentError, matching ActiveRecord's behavior" do
+      error = assert_raises(ArgumentError) do
+        Class.new(Funes::Event) do
+          references :customer, class_name: Examples::Customer
+        end
+      end
+
+      assert_equal "A class was passed to `:class_name` but we are expecting a string.", error.message
+    end
+  end
+
   describe "foreign_key: option" do
     it "uses the configured attribute name" do
       event = CustomForeignKeyEvent.new(account: customer)
