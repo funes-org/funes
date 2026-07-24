@@ -10,7 +10,8 @@ module Funes
   #
   # The reader returns the record's *current* state (a live lookup via +find_by+), not a snapshot of
   # how it looked when the event was recorded. A reference whose record no longer exists reads as
-  # +nil+ rather than raising.
+  # +nil+ rather than raising. The loaded record is memoized per reference and reloaded whenever the
+  # foreign key attribute changes, matching Active Record's staleness handling.
   #
   # == Example
   #
@@ -70,9 +71,15 @@ module Funes
           id = public_send(fk)
           return nil if id.nil?
 
-          (@__reference_cache ||= {}).fetch(name) do
-            @__reference_cache[name] = klass_str.constantize.find_by(id: id)
-          end
+          # Cache entries are [id, record] pairs so a direct write to the foreign key attribute
+          # invalidates the memoized record, as in ActiveRecord's stale-target handling.
+          @__reference_cache ||= {}
+          cached_id, cached_record = @__reference_cache[name]
+          return cached_record if cached_id == id
+
+          record = klass_str.constantize.find_by(id: id)
+          @__reference_cache[name] = [ id, record ]
+          record
         end
 
         define_method("#{name}=") do |record|
@@ -82,7 +89,7 @@ module Funes
             @__reference_cache.delete(name)
           else
             public_send("#{fk}=", record.id)
-            @__reference_cache[name] = record
+            @__reference_cache[name] = [ record.id, record ]
           end
         end
 

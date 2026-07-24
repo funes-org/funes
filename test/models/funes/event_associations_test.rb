@@ -71,6 +71,33 @@ class Funes::EventAssociationsTest < ActiveSupport::TestCase
     end
   end
 
+  describe "foreign key reassignment" do
+    let(:other_customer) { Examples::Customer.create!(name: "Grace") }
+
+    it "reloads the reference assigned as a record" do
+      event = ReferencingEvent.new(customer: customer)
+      event.customer_id = other_customer.id
+
+      assert_equal other_customer, event.customer
+    end
+
+    it "reloads a lazily loaded reference" do
+      event = ReferencingEvent.new(customer_id: customer.id)
+      event.customer # populate the cache
+      event.customer_id = other_customer.id
+
+      assert_equal other_customer, event.customer
+    end
+
+    it "keeps the cached instance when set back to the same id" do
+      event = ReferencingEvent.new(customer: customer)
+      event.customer_id = other_customer.id
+      event.customer_id = customer.id
+
+      assert_same customer, event.customer
+    end
+  end
+
   describe "serialization round-trip" do
     it "survives persistence and rehydration via the event entry" do
       event = ReferencingEvent.new(customer: customer)
