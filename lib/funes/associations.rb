@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Funes
-  # Declares references from an event to other models, accessible at interpretation time.
+  # Declares references to other models, accessible at interpretation time.
   #
   # Events are immutable facts serialized as plain JSON in the +props+ column, so an event cannot
   # store another model directly. The +refers_to+ macro stores only the referenced record's id as a
@@ -43,6 +43,45 @@ module Funes
   #     refers_to :borrower, class_name: "User", required: true
   #     refers_to :account, foreign_key: :account_uuid
   #   end
+  #
+  # == Requirements
+  #
+  # The including class must provide +ActiveModel::Attributes+, which backs the foreign key
+  # attribute. Passing <tt>required: true</tt> additionally needs +ActiveModel::Validations+.
+  # {Funes::Event} provides both.
+  #
+  # == Use on materialization models
+  #
+  # A projection's state is an instance of its materialization model, so a materialization model
+  # that declares +refers_to+ offers interpretation blocks the same API events do — the reference
+  # reads and writes identically on both sides of the block:
+  #
+  #   class CustomerSnapshot
+  #     include ActiveModel::Model
+  #     include ActiveModel::Attributes
+  #     include Funes::Associations
+  #
+  #     refers_to :customer, class_name: "Examples::Customer"
+  #   end
+  #
+  #   interpretation_for Deposit::Opened do |state, event, _at|
+  #     state.customer = event.customer
+  #     state
+  #   end
+  #
+  # Only the id travels in +attributes+, so the reference survives the rebuild that +materialize!+
+  # performs. This works for both virtual materialization models and those persisted through
+  # +persist_materialization_model_with+.
+  #
+  # For an ActiveRecord-backed materialization model, declare a regular +belongs_to+ association
+  # instead: it is the idiomatic tool there, and it brings preloading and +inverse_of+ with it.
+  #
+  # == Namespaced models
+  #
+  # +class_name+ must be fully qualified, e.g. <tt>class_name: "Examples::Customer"</tt>. It is
+  # resolved lazily, on the first load by id — assigning a record caches it directly, so a wrong
+  # +class_name+ surfaces only when a freshly built object reads the reference, not when it is
+  # assigned.
   module Associations
     extend ActiveSupport::Concern
 
