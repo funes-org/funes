@@ -16,6 +16,21 @@ class Funes::EventAssociationsTest < ActiveSupport::TestCase
     refers_to :account, class_name: "Examples::Customer", foreign_key: :account_uuid
   end
 
+  class TwoModelsEvent < Funes::Event
+    refers_to :customer, class_name: "Examples::Customer"
+    refers_to :account, class_name: "Examples::Account"
+  end
+
+  class SameModelTwiceEvent < Funes::Event
+    refers_to :buyer, class_name: "Examples::Customer"
+    refers_to :seller, class_name: "Examples::Customer"
+  end
+
+  class SharedForeignKeyEvent < Funes::Event
+    refers_to :buyer, class_name: "Examples::Customer", foreign_key: :customer_id
+    refers_to :seller, class_name: "Examples::Customer", foreign_key: :customer_id
+  end
+
   let(:customer) { Examples::Customer.create!(name: "Ada") }
 
   describe "foreign key attribute" do
@@ -149,6 +164,63 @@ class Funes::EventAssociationsTest < ActiveSupport::TestCase
       assert_equal customer.id, event.account_uuid
       assert_includes event.attributes.keys, "account_uuid"
       assert_equal customer, event.account
+    end
+  end
+
+  describe "multiple references to different models" do
+    let(:account) { Examples::Account.create!(number: "ACC-1") }
+
+    it "keeps a separate foreign key per reference" do
+      event = TwoModelsEvent.new(customer: customer, account: account)
+
+      assert_equal customer.id, event.customer_id
+      assert_equal account.id, event.account_id
+    end
+
+    it "resolves each reference to its own class" do
+      # Rebuilding from attributes bypasses the writer's cache, so each reference has to
+      # resolve its own class_name and load by id for real.
+      rehydrated = TwoModelsEvent.new(TwoModelsEvent.new(customer: customer, account: account).attributes)
+
+      assert_equal customer, rehydrated.customer
+      assert_equal account, rehydrated.account
+    end
+  end
+
+  describe "multiple references to the same model" do
+    let(:other_customer) { Examples::Customer.create!(name: "Grace") }
+
+    it "keeps the references independent" do
+      event = SameModelTwiceEvent.new(buyer: customer, seller: other_customer)
+
+      assert_equal customer, event.buyer
+      assert_equal other_customer, event.seller
+    end
+
+    it "reloads only the reference whose foreign key changed" do
+      event = SameModelTwiceEvent.new(buyer: customer, seller: other_customer)
+      event.buyer_id = other_customer.id
+
+      assert_equal other_customer, event.buyer
+      assert_same other_customer, event.seller
+    end
+
+    it "allows both references to point at the same record" do
+      event = SameModelTwiceEvent.new(buyer: customer, seller: customer)
+
+      assert_equal customer.id, event.buyer_id
+      assert_equal customer.id, event.seller_id
+    end
+  end
+
+  describe "two references sharing one foreign key" do
+    it "makes them aliases of each other" do
+      # A degenerate declaration: one attribute backs both references, so writing either
+      # moves both. Documented here so the behaviour is not mistaken for a bug.
+      event = SharedForeignKeyEvent.new(buyer: customer)
+
+      assert_equal [ "customer_id" ], event.attributes.keys
+      assert_equal customer, event.seller
     end
   end
 
