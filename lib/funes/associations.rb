@@ -15,16 +15,16 @@ module Funes
   #
   # == Example
   #
-  #   class Deposit::Opened < Funes::Event
+  #   class Deposit::Created < Funes::Event
   #     refers_to :customer
   #   end
   #
-  #   event = Deposit::Opened.new(customer: some_customer)
+  #   event = Deposit::Created.new(customer: some_customer)
   #   event.customer_id      # => some_customer.id  (this is what gets serialized)
   #   event.customer         # => some_customer
   #
   #   # Inside an interpretation block, the reference is read straight off the event:
-  #   interpretation_for Deposit::Opened do |state, event, _at|
+  #   interpretation_for Deposit::Created do |state, event, _at|
   #     state.customer = event.customer
   #     state
   #   end
@@ -64,7 +64,7 @@ module Funes
   #     refers_to :customer, class_name: "Examples::Customer"
   #   end
   #
-  #   interpretation_for Deposit::Opened do |state, event, _at|
+  #   interpretation_for Deposit::Created do |state, event, _at|
   #     state.customer = event.customer
   #     state
   #   end

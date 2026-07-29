@@ -1,5 +1,7 @@
 module Examples::DepositEvents
   class Created < Funes::Event
+    refers_to :customer, class_name: "Examples::Customer"
+
     attribute :value, :decimal
     attribute :effective_date, :date
 
