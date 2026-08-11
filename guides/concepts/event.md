@@ -52,6 +52,32 @@ end
 
 Because events are `ActiveModel` instances and not `ActiveRecord` models, they are **schema-independent**. Your historical facts never need a migration just because your UI requirements changed.
 
+## Referencing other models
+
+Facts rarely happen in a vacuum — a debt is issued *to a customer*, a payment is received *from an account*. Since an event is serialized as plain JSON, it cannot carry another model inside it. Declaring `refers_to` bridges that gap:
+
+```ruby
+# app/models/events/debt/issued.rb
+module Debt
+  class Issued < Funes::Event
+    refers_to :customer
+
+    attribute :amount, :decimal
+    attribute :at, :datetime
+  end
+end
+```
+
+You assign and read the record itself, while only its id is stored in the payload:
+
+```ruby
+event = Debt::Issued.new(customer: customer, amount: 1_000)
+event.customer_id # => 42, the only thing that gets serialized
+event.customer    # => #<Customer id: 42, name: "Ada">
+```
+
+The reader loads the record lazily, so the reference is there for you inside an interpretation block without bloating the stored fact. Read more in [Referencing Active Record models](/recipes/referencing-active-record-models/).
+
 ---
 
 Up next: [Event Stream](/concepts/event-stream/), the concept that groups events by entity, validates them, and writes them to the log.
