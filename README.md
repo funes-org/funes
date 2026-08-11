@@ -1,5 +1,7 @@
 # Funes
 
+[![Gem Version](https://badge.fury.io/rb/funes-rails.svg)](https://badge.fury.io/rb/funes-rails)
+
 An event sourcing meta-framework designed to provide a frictionless experience for RoR developers to build and operate systems where history is as important as the present. Built with the one-person framework philosophy in mind, it honors the Rails doctrine by providing deep **conceptual compression** over what is usually a complex architectural pattern.
 
 At its core is a declarative DSL that favors the **interpretation of events** over all the plumbing. You describe how each event affects state, and Funes handles persistence, ordering, concurrency, and materialization for you.
