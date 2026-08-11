@@ -36,6 +36,24 @@ module Funes
   #   event = Order::Placed.new(total: 99.99, customer_id: "cust-123")
   #   stream.append(event)
   #
+  # ## Associating Events With Other Models
+  #
+  # Use +refers_to+ to relate an event to another model. Only the referenced record's id is stored
+  # in the event payload; the record itself is loaded lazily and is readable at interpretation time:
+  #
+  # @example Reference another model and read it in an interpretation
+  #   class Order::Placed < Funes::Event
+  #     refers_to :customer
+  #     attribute :total, :decimal
+  #   end
+  #
+  #   stream.append(Order::Placed.new(customer: customer, total: 99.99))
+  #
+  #   interpretation_for Order::Placed do |state, event, _at|
+  #     state.customer = event.customer  # loaded by id from props
+  #     state
+  #   end
+  #
   # @example Handling validation errors
   #   event = stream.append(Order::Placed.new(total: -10))
   #   unless event.valid?
@@ -47,6 +65,7 @@ module Funes
     include ActiveModel::Model
     include ActiveModel::Attributes
     include Funes::Inspection
+    include Funes::Associations
 
     # @!attribute [rw] adjacent_state_errors
     #   @return [ActiveModel::Errors] Validation errors from consistency projections.

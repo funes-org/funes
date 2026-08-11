@@ -4,7 +4,8 @@ module Examples::Deposit
 
     interpretation_for Examples::DepositEvents::Created do |state, creation_event, _at|
       state.assign_attributes(original_value: creation_event.value,
-                              balance: creation_event.value)
+                              balance: creation_event.value,
+                              customer: creation_event.customer)
       state
     end
 
