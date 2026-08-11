@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-11
+
 ### Added
 
 - `refers_to` macro for events and materialization models — declare that an
@@ -152,7 +154,8 @@ Initial public release, published as `funes-rails`.
 - `funes:install` generator with the initial migration
 - Mountable Rails engine
 
-[Unreleased]: https://github.com/funes-org/funes/compare/v0.2.5...HEAD
+[Unreleased]: https://github.com/funes-org/funes/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/funes-org/funes/compare/v0.2.5...v0.3.0
 [0.2.5]: https://github.com/funes-org/funes/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/funes-org/funes/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/funes-org/funes/compare/v0.2.2...v0.2.3
