@@ -74,7 +74,17 @@ module Funes
   # +persist_materialization_model_with+.
   #
   # For an ActiveRecord-backed materialization model, declare a regular +belongs_to+ association
-  # instead: it is the idiomatic tool there, and it brings preloading and +inverse_of+ with it.
+  # instead. That is the idiomatic tool there, and it brings preloading and +inverse_of+ with it.
+  #
+  # +refers_to+ can work on such a model, but only when the foreign key is already a column in the
+  # database — and even then +belongs_to+ remains the better choice. Without that column the failure
+  # is late and misleading: interpretation blocks read and write the reference correctly and the
+  # foreign key is populated, then +materialize!+ feeds +attributes+ into an upsert and raises
+  #
+  #   ActiveModel::UnknownAttributeError: unknown attribute 'customer_id' for CustomerSnapshot.
+  #
+  # naming the attribute without mentioning the missing column or the +refers_to+ call that created
+  # it, so the error surfaces far from its cause.
   #
   # == Namespaced models
   #
