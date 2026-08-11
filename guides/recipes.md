@@ -17,3 +17,4 @@ Task-focused guides for the things you actually do with Funes. Each recipe assum
 - [Attaching meta information to events](/recipes/attaching-meta-information/) — record the user and request context behind every event
 - [Building bi-temporal event streams](/recipes/bi-temporal-event-streams/) — query by `as_of` and `at` for full historical reconstruction
 - [Testing projections](/recipes/testing-projections/) — exercise interpretations in isolation with `ProjectionTestHelper`
+- [Referencing Active Record models](/recipes/referencing-active-record-models/) — point events and materialization models at the rest of your Rails app with `refers_to`

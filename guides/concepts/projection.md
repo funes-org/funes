@@ -31,6 +31,33 @@ Every projection must have a **materialization model** — the class that holds 
 
 For more details about the setup of each one, see the [Setting up projections](/recipes/materialization-models/) recipes.
 
+A materialization model can reference regular Rails models too. Include `Funes::Associations` and declare `refers_to` exactly as you would [on an event](/concepts/event/#referencing-other-models) — the reference then reads and writes the same way on both sides of an interpretation block:
+
+```ruby
+# app/models/outstanding_balance.rb
+class OutstandingBalance
+  include ActiveModel::Model
+  include ActiveModel::Attributes
+  include Funes::Associations
+
+  refers_to :customer
+
+  attribute :outstanding_balance, :decimal
+end
+```
+
+```ruby
+interpretation_for Debt::Issued do |state, event, _at|
+  state.customer = event.customer
+  state
+end
+```
+
+Only the id lives in the model's attributes, so the reference survives every rebuild.
+
+{: .warning }
+On an **ActiveRecord-backed** materialization model, declare a regular `belongs_to` instead — that's the idiomatic tool there, and it brings preloading and `inverse_of` with it. See [Referencing Active Record models](/recipes/referencing-active-record-models/#a-note-on-activerecord-materialization-models).
+
 ## The interpretations DSL
 
 The interpretations DSL is the heart of every projection — and the surface Funes was designed around. It gives you three building blocks that together describe how a stream of events becomes a final state:
