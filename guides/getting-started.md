@@ -31,7 +31,7 @@ Funes stores all events in a single table called `event_entries`. Generate the m
 $ bin/rails generate funes:install
 ```
 
-This creates a migration file under `db/migrate/`. Open it and you'll see it sets up the `event_entries` table with the columns Funes needs: the event class, a stream identifier, the event attributes as JSON, a version number for concurrency control, and two timestamps — `created_at` for when the event was recorded and `occurred_at` for when it actually happened.
+This creates a migration file under `db/migrate/`. Open it. You'll see the `event_entries` table with the columns Funes needs. There is the event class, a stream identifier, the event attributes as JSON, and a version number for concurrency control. Two timestamps close it out: `created_at` records when Funes stored the event, and `occurred_at` records when it actually happened.
 
 {: .note }
 On Postgres, the migration uses `jsonb` instead of `json` for the attributes and metainformation columns — same data, but indexable and queryable inside the database.

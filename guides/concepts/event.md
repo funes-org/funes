@@ -16,18 +16,18 @@ nav_order: 1
 
 ---
 
-An **Event** is an immutable record of something that happened. Unlike a traditional model, an event is not current state — it is a fact from history. Once recorded, they are written in stone — Funes never updates or deletes them. 
+An **Event** is an immutable record of something that happened. Unlike a traditional model, an event is not current state — it is a fact from history. Funes never updates or deletes an event once it lands in the log. 
 
 How to handle events that no longer reflect reality is a well-studied topic; Greg Young's [*Versioning in an Event Sourced System*](https://leanpub.com/esversioning#table-of-contents) is a thorough reference.
 
 {: .warning }
-Choose event class names with care up front. Funes stores the literal class name in the `event_entries` table for every event ever appended, so renaming one is technically possible but never trivial — it means a data migration over every persisted event of that type, coordinated with the code rename. Treat the name as part of the fact.
+Choose event class names with care up front. Funes stores the literal class name in the `event_entries` table for every event you append. Renaming one is technically possible but never trivial: it means a data migration over every persisted event of that type, coordinated with the code rename. Treat the name as part of the fact.
 
 ## Facts, not state
 
 Think about how a typical Rails model works: a `Debt` record carries the outstanding balance *now*. When a payment comes in, you decrement that balance — and the payment itself, in all its detail, is gone.
 
-An event works differently. A `Debt::PaymentReceived` event records *what happened* — the principal amount, the interest amount, and when the payment occurred. The fact is stored permanently and can never be updated.
+An event works differently. A `Debt::PaymentReceived` event records *what happened* — the principal amount, the interest amount, and when the payment occurred. Funes stores the fact permanently, and nothing can ever update it.
 
 This distinction is the foundation of event sourcing. Your system's history becomes the source of truth, and current state is derived from it.
 
@@ -54,7 +54,7 @@ Because events are `ActiveModel` instances and not `ActiveRecord` models, they a
 
 ## Referencing other models
 
-Facts rarely happen in a vacuum — a debt is issued *to a customer*, a payment is received *from an account*. Since an event is serialized as plain JSON, it cannot carry another model inside it. Declaring `refers_to` bridges that gap:
+Facts rarely stand alone — you issue a debt *to a customer*, you receive a payment *from an account*. Since Funes serializes an event as plain JSON, it cannot carry another model inside it. Declaring `refers_to` bridges that gap:
 
 ```ruby
 # app/models/events/debt/issued.rb
@@ -68,7 +68,7 @@ module Debt
 end
 ```
 
-You assign and read the record itself, while only its id is stored in the payload:
+You assign and read the record itself, while Funes stores only its id in the payload:
 
 ```ruby
 event = Debt::Issued.new(customer: customer, amount: 1_000)

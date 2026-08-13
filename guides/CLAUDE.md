@@ -9,6 +9,40 @@ The goal is warm professionalism: encouraging without being casual, authoritativ
 - Short, direct sentences for instructions. Longer sentences only when explaining *why* something works as it does
 - Occasional enthusiasm is welcome ("Pretty cool!") but keep it sparse
 
+## Clarity Rules
+
+The guides follow the clarity subset of [ASD-STE100 Simplified Technical
+English](https://www.asd-ste100.org/). Not the whole standard: STE's closed
+vocabulary and simple-tenses-only rule would flatten the voice described above,
+and a developer guide has to teach and persuade, not just instruct. What we do
+adopt is the part that helps every reader and helps non-native readers most.
+
+Run `bin/ste_check` to lint every page. It exits non-zero on a finding, so it
+works as a CI gate. Rules, with the codes the linter reports:
+
+- **4.1 — sentence length.** Max 25 words for descriptive prose, 20 for a
+  sentence that opens with an imperative. When a sentence runs long, split it;
+  don't shorten by deleting the *why*.
+- **3.2 — passive voice.** Name the actor. "Funes stores the class name", not
+  "the class name is stored". This is the rule that fires most often on a first
+  draft, and fixing it usually makes the sentence shorter too.
+- **3.4 — vague modals.** Use "must" or "can". Avoid "shall", "should", "may",
+  "might": they hide whether something is required, permitted, or merely likely.
+- **8.1 — stacked asides.** One em-dash aside per sentence. Two turns the
+  sentence into a puzzle — like this one — and the reader loses the main clause.
+- **6.1 — idioms and metaphors.** No "written in stone", "out of the box",
+  "rule of thumb", "on the fly". They don't survive translation and they stall
+  non-native readers. Say the literal thing.
+- **2.1 — noun clusters.** Never more than three nouns in a row. Break them up
+  with prepositions: "the table of the materialization model", not "the
+  materialization model table row shape".
+- **1.5 — plain words.** "use" over "utilize", "do" over "perform", "before"
+  over "prior to", "need" over "require", "to" over "in order to".
+
+The linter is a floor, not a ceiling. It cannot see whether a sentence is
+*clear*, only whether it is long, passive, or idiomatic. A page that passes
+`bin/ste_check` can still be confusing.
+
 ## Guide Structure
 
 Every page with multiple sections follows the same layout:
@@ -75,6 +109,7 @@ For warnings, use the same syntax with `{: .warning }`.
 ## What to Avoid
 
 - Passive constructions ("it is recommended that...") — say who does what
+  (`bin/ste_check` catches most of these)
 - Explaining the same concept twice across different guides — link instead
 - Skipping the "why" — readers need to understand motivation, not just steps
 - Over-engineering examples — keep them minimal and focused on the concept being taught

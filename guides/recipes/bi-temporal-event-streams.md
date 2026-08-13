@@ -16,20 +16,20 @@ nav_order: 7
 
 ---
 
-Most systems treat time as something that happens *to* the data — rows get updated, timestamps stick, and history shows up as a side effect at best. Event sourcing inverts that relationship: **time becomes a first-class dimension of the model**, queryable on its own terms. Audit trails stop being a separate ledger you maintain by hand; state reconstructions stop being painful archaeology; debugging stops requiring a time machine you don't have. Once you can model *when* alongside *what*, whole categories of problems collapse into a single query — and the architecture shifts with it: you start modeling what *happened* instead of what *is*, the canonical store is an append-only log instead of a mutable table, and views of the system become queries over time rather than snapshots cached in place.
+Most systems treat time as something that happens *to* the data. Rows get updated, timestamps stick, and history shows up as a side effect at best. Event sourcing inverts that relationship: **time becomes a first-class dimension of the model**, queryable on its own terms. Audit trails stop being a separate ledger you maintain by hand. State reconstructions stop being painful archaeology. Debugging stops requiring a time machine you don't have. Once you can model *when* alongside *what*, whole categories of problems collapse into a single query. The architecture shifts with it. You model what *happened* instead of what *is*. The canonical store becomes an append-only log instead of a mutable table. Views of the system become queries over time, not snapshots cached in place.
 
-Funes leans into this with full [**bitemporal**](https://martinfowler.com/articles/bitemporal-history.html) history. Two independent temporal dimensions are exposed by every stream (Martin Fowler's article is the canonical reference if you want the conceptual background):
+Funes leans into this with full [**bitemporal**](https://martinfowler.com/articles/bitemporal-history.html) history. Every stream exposes two independent temporal dimensions. (Martin Fowler's article is the canonical reference if you want the conceptual background.)
 
 | Dimension | Parameter | Stored in | Question it answers |
 |:----------|:----------|:----------|:--------------------|
 | Record history | `as_of` | `created_at` | "What did the system know at time T?" |
 | Actual history | `at` | `occurred_at` | "What had actually happened by time T?" |
 
-Each dimension can be queried independently or combined.
+You can query each dimension on its own, or combine them.
 
 ## Record history
 
-Every event is stamped with `created_at` the moment it is persisted. Passing `as_of:` to `projected_with` replays only the events the system knew about up to that point:
+Funes stamps every event with `created_at` the moment it persists the event. Pass `as_of:` to `projected_with` to replay only the events the system knew about up to that point:
 
 ```ruby
 stream = InventoryEventStream.for("sku-12345")
@@ -42,7 +42,7 @@ This answers the question: *"If I had run this query on that date, what would I 
 
 ## Actual history
 
-Events can be recorded retroactively — the moment the system learns about something may differ from when it actually happened. The `occurred_at` column captures business time, independently of when the event entered the log.
+You can record events retroactively. The moment the system learns about something is often not the moment it actually happened. The `occurred_at` column captures business time, independently of when the event entered the log.
 
 You can set it explicitly on each append:
 
@@ -61,7 +61,7 @@ end
 stream.append(Salary::Raised.new(amount: 6500, at: Time.new(2025, 2, 15)))
 ```
 
-When neither `at:` nor `actual_time_attribute` is configured, `occurred_at` defaults to `created_at`.
+When you configure neither `at:` nor `actual_time_attribute`, `occurred_at` defaults to `created_at`.
 
 Query by actual history with `projected_with`:
 
@@ -82,7 +82,7 @@ stream = SalaryEventStream.for("sally-123")
 stream.projected_with(SalaryProjection, as_of: Time.new(2025, 3, 1), at: Time.new(2025, 2, 20))
 ```
 
-This is invaluable for audits, corrections, and compliance scenarios where you need to reconstruct the exact state a decision was made from.
+This is invaluable for audits, corrections, and compliance scenarios, where you need to reconstruct the exact state behind a decision.
 
 ## Temporal context in projections
 
@@ -98,7 +98,7 @@ interpretation_for Salary::Raised do |state, event, at|
 end
 ```
 
-The **state's temporal reference** — what you passed as `at:` to `projected_with` — flows into `initial_state` and `final_state` instead. These hooks are called once, before and after all events are replayed, and are the right place for calculations relative to the query's point in time:
+The **state's temporal reference** flows into `initial_state` and `final_state` instead. That is what you passed as `at:` to `projected_with`. Funes calls these hooks once, before and after it replays the events. They are the right place for calculations relative to the query's point in time:
 
 ```ruby
 final_state do |state, at|

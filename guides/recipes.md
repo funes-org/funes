@@ -7,7 +7,7 @@ has_children: true
 
 # Recipes
 
-Task-focused guides for the things you actually do with Funes. Each recipe assumes you've met the [Concepts](/concepts/) and shows you how to put them to work in a real Rails app — appending events from controllers, translating messages, coordinating with sibling writes, querying history, and shipping projections to whatever destination fits.
+Task-focused guides for the things you actually do with Funes. Each recipe assumes you've met the [Concepts](/concepts/) and shows you how to put them to work in a real Rails app. That means appending events from controllers, translating messages, coordinating with sibling writes, querying history, and shipping projections to whatever destination fits.
 
 - [Setting up projections](/recipes/materialization-models/) — virtual or persistent (default-database or custom-destination) projections
 - [Events as first-class Rails citizens](/recipes/events-the-rails-way/) — forms, controllers, and I18n all work as you'd expect

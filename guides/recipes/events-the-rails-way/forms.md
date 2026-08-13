@@ -39,7 +39,7 @@ Since events are `ActiveModel` objects, `form_with` and the standard error helpe
 <% end %>
 ```
 
-To show a message inline next to a specific field, scope the lookup by attribute with the standard `errors[:attr]` API — the same idiom you'd use on any `ActiveRecord` model:
+To show a message inline next to a specific field, scope the lookup by attribute with the standard `errors[:attr]` API. It's the same idiom you'd use on any `ActiveRecord` model:
 
 ```erb
 <div>
@@ -52,4 +52,4 @@ To show a message inline next to a specific field, scope the lookup by attribute
 ```
 
 {: .note }
-Funes events actually expose three error collections — `errors`, `own_errors`, and `state_errors` — to keep different failure modes apart. The `errors` used above is the right pick most of the time and the standard Rails idiom. See [Reading the right error collection](/recipes/error-collections/) for when to reach for each.
+Funes events actually expose three error collections: `errors`, `own_errors`, and `state_errors`. They keep different failure modes apart. The `errors` used above is the right pick most of the time, and the standard Rails idiom. See [Reading the right error collection](/recipes/error-collections/) for when to reach for each.

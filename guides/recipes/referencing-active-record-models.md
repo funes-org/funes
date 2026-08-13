@@ -16,7 +16,7 @@ nav_order: 9
 
 ---
 
-Most facts point at something in your existing Rails app: a debt is issued *to a customer*, a payment lands *in an account*. But an event is serialized as plain JSON in the `props` column, so it cannot hold an Active Record object. `refers_to` gives you the association-like API you'd expect while storing only what belongs in an immutable fact — the referenced record's id.
+Most facts point at something in your existing Rails app: you issue a debt *to a customer*, a payment lands *in an account*. But Funes serializes an event as plain JSON in the `props` column, so it cannot hold an Active Record object. `refers_to` gives you the association-like API you'd expect while storing only what belongs in an immutable fact — the referenced record's id.
 
 This recipe assumes you're comfortable with [events](/concepts/event/) and [projections](/concepts/projection/).
 
@@ -65,10 +65,10 @@ interpretation_for Debt::Issued do |state, event, at|
 end
 ```
 
-The record is fetched lazily on that first call and memoized afterwards, so replaying a stream doesn't re-query for every event that shares a reference.
+Funes fetches the record lazily on that first call and memoizes it afterwards. Replaying a stream doesn't re-query for every event that shares a reference.
 
 {: .note }
-The reader returns the referenced record's **current** state — it's a live lookup, not a snapshot of how the record looked when the event happened. If the fact itself needs the old value (the customer's name *at the time*), copy that value into an attribute on the event instead. And if the record has since been deleted, the reader returns `nil` rather than raising.
+The reader returns the referenced record's **current** state — it's a live lookup, not a snapshot of how the record looked when the event happened. If the fact itself needs the old value (the customer's name *at the time*), copy that value into an attribute on the event instead. And if someone has since deleted the record, the reader returns `nil` rather than raising.
 
 ## Options
 
@@ -139,7 +139,7 @@ Only the id travels in `attributes`, so the reference survives the rebuild that 
 {: .warning }
 For an **ActiveRecord-backed** materialization model, declare a regular `belongs_to` association instead. That's the idiomatic tool there, and it brings preloading and `inverse_of` with it.
 
-`refers_to` can work on such a model, but only when the foreign key already exists as a column — and even then `belongs_to` remains the better choice. Without that column the failure arrives late and points at the wrong thing: your interpretation blocks read and write the reference correctly, the foreign key gets populated, and then `materialize!` feeds `attributes` into an upsert and raises
+`refers_to` can work on such a model, but only when the foreign key already exists as a column. Even then, `belongs_to` remains the better choice. Without that column the failure arrives late and points at the wrong thing. Your interpretation blocks read and write the reference correctly, and the foreign key gets populated. Then `materialize!` feeds `attributes` into an upsert and raises
 
 ```
 ActiveModel::UnknownAttributeError: unknown attribute 'customer_id' for DebtSummary.

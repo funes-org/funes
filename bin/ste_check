@@ -1,0 +1,219 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# ste_check — a prose linter for the Funes guides.
+#
+# It enforces the clarity subset of ASD-STE100 Simplified Technical English that
+# we adopted in guides/CLAUDE.md. It deliberately does NOT enforce STE's closed
+# vocabulary or its simple-tenses-only rule: those flatten the warm, direct voice
+# the guides are written in. What is left is the part that helps every reader,
+# and helps non-native readers most.
+#
+#   bin/ste_check                 lint every page under guides/
+#   bin/ste_check guides/x.md     lint specific pages
+#   bin/ste_check --verbose       show every finding (default: grouped summary)
+#
+# Exits non-zero when it finds anything, so CI can gate on it.
+
+require "set"
+
+MAX_DESCRIPTIVE = 25
+MAX_PROCEDURAL  = 20
+
+# Rule 1.5 — plain replacements. Each of these has a shorter, more common word
+# that means the same thing in the guides' context.
+SUBSTITUTIONS = {
+  "accomplish" => "do", "additional" => "more", "assist" => "help",
+  "attempt" => "try", "commence" => "start", "demonstrate" => "show",
+  "desire" => "want", "employ" => "use", "endeavour" => "try",
+  "facilitate" => "help", "illustrate" => "show", "initiate" => "start",
+  "majority of" => "most of", "numerous" => "many", "obtain" => "get",
+  "perform" => "do", "possess" => "have", "prior to" => "before",
+  "purchase" => "buy", "regarding" => "about", "subsequent to" => "after",
+  "sufficient" => "enough", "terminate" => "stop", "utilise" => "use",
+  "utilize" => "use", "in order to" => "to", "in the event that" => "if",
+  "with regard to" => "about", "at this point in time" => "now",
+  "a number of" => "some, many", "is able to" => "can",
+  "has the ability to" => "can", "it is recommended that" => "we recommend"
+}.freeze
+
+# Rule 3.4 — vague modals. STE allows "must" and "can"; the rest hide the actor.
+BANNED_MODALS = %w[shall should may might].freeze
+
+# Idioms and metaphors. STE bans these outright: they do not survive
+# translation and they stall non-native readers.
+IDIOMS = [
+  "written in stone", "set in stone", "in a vacuum", "out of the box",
+  "under the hood", "rule of thumb", "the sweet spot", "a far cry",
+  "bread and butter", "hand in hand", "on the fly", "in a nutshell",
+  "the whole nine yards", "back to square one", "cut corners",
+  "down the line", "down the road", "for free", "gotcha", "silver bullet",
+  "heavy lifting", "boils down to", "under your belt", "at the end of the day",
+  "kicks in", "end to end"
+].freeze
+# "first-class citizen" is deliberately absent: it names a page in these guides
+# and is settled Rails vocabulary, not a live metaphor.
+
+# Words ending in -ed/-en that are not past participles. Without this the
+# passive check reads "is often not" as "is oft-en".
+NOT_PARTICIPLES = %w[
+  often when then even open golden hidden sudden token garden kitchen listen
+  happen screen green between children women men seven eleven oxygen
+  need indeed speed feed seed exceed proceed succeed instead spread thread
+  ahead red bed bred fed led wed shed sled hundred sacred varied
+].to_set.freeze
+
+# Rule 2.1 — noun clusters. Detected against the guides' own domain nouns.
+DOMAIN_NOUNS = %w[
+  event events stream streams projection projections model models table tables
+  record records database databases column columns key keys name names class
+  classes attribute attributes payload payloads state entry entries migration
+  migrations schema schemas id ids time times log logs block blocks method
+  methods helper helpers test tests form forms controller controllers action
+  actions translation translations view views page pages guide guides value
+  values type types object objects instance instances error errors message
+  messages field fields row rows query queries result results reference
+  references entity entities fact facts history source truth cache caches
+  version versions option options config configuration parameter parameters
+  interpretation materialization serializer validation validations
+].to_set.freeze
+
+Finding = Struct.new(:file, :line, :rule, :message)
+
+RULE_NAMES = {
+  "1.5" => "plain word",
+  "2.1" => "noun cluster",
+  "3.2" => "passive voice",
+  "3.4" => "vague modal",
+  "4.1" => "sentence length",
+  "6.1" => "idiom / metaphor",
+  "8.1" => "stacked aside"
+}.freeze
+
+# Pull prose out of a Markdown page: no front matter, no fenced code, no
+# headings, no tables, no just-the-docs directives.
+def prose(path)
+  out = []
+  in_code = false
+  in_front = false
+  File.readlines(path).each_with_index do |raw, i|
+    line = raw.chomp
+    if i.zero? && line == "---"
+      in_front = true
+      next
+    end
+    if in_front
+      in_front = false if line == "---"
+      next
+    end
+    if line.start_with?("```")
+      in_code = !in_code
+      next
+    end
+    next if in_code
+    next if line.start_with?("#", "|", "{:", "---", ">")
+    # Keep list text, but drop the marker so it does not count as a word.
+    item = line.match?(/\A\s*(?:[-*+]|\d+\.)\s+/)
+    text = line.sub(/\A\s*(?:[-*+]|\d+\.)\s+/, "")
+    text = text.gsub(/`[^`]*`/, "CODE")
+              .gsub(/\[([^\]]*)\]\([^)]*\)/, '\1')
+              .gsub(/[*_]{1,2}([^*_]+)[*_]{1,2}/, '\1')
+    out << [i + 1, text, item] unless text.strip.empty?
+  end
+  out
+end
+
+# Group consecutive prose lines into paragraphs, then split into sentences,
+# keeping the line each sentence starts on. A list item is its own unit: bullets
+# rarely end in a full stop, so merging them would produce one huge "sentence".
+def sentences(prose_lines)
+  out = []
+  prose_lines.chunk_while { |a, b| b[0] == a[0] + 1 && !a[2] && !b[2] }.each do |para|
+    line = para.first[0]
+    para.map { |p| p[1] }.join(" ").split(/(?<=[.!?])\s+(?=[A-Z"'(])/).each do |s|
+      s = s.strip
+      out << [line, s] unless s.empty?
+    end
+  end
+  out
+end
+
+PROCEDURAL_OPENERS = /\A(Do|Use|Add|Set|Put|Make|Read|Open|Run|Define|Give|Write|Select|Call|Pass|Declare|Create|Install|Generate|Start|Stop|Check|Replace|Move|Keep)\b/
+
+def lint(path)
+  findings = []
+  lines = prose(path)
+
+  sentences(lines).each do |line, s|
+    words = s.split(/\s+/).size
+    procedural = s.match?(PROCEDURAL_OPENERS)
+    limit = procedural ? MAX_PROCEDURAL : MAX_DESCRIPTIVE
+    if words > limit
+      kind = procedural ? "procedural" : "descriptive"
+      findings << Finding.new(path, line, "4.1",
+                              "#{kind} sentence is #{words} words (max #{limit})")
+    end
+
+    low = s.downcase
+
+    SUBSTITUTIONS.each do |bad, good|
+      next unless low.match?(/\b#{Regexp.escape(bad)}\b/)
+      findings << Finding.new(path, line, "1.5", "#{bad.inspect} → #{good}")
+    end
+
+    IDIOMS.each do |idiom|
+      next unless low.include?(idiom)
+      findings << Finding.new(path, line, "6.1", "#{idiom.inspect} — say it literally")
+    end
+
+    BANNED_MODALS.each do |m|
+      next unless low.match?(/\b#{m}\b/)
+      findings << Finding.new(path, line, "3.4", "#{m.inspect} — use \"must\", \"can\", or an imperative")
+    end
+
+    # Passive: a form of "to be" followed by a past participle. The exclusions
+    # are copulas and lexicalised participles that read as adjectives.
+    passive = s.scan(/\b(?:is|are|was|were|be|been|being)\s+(?:not\s+|also\s+|already\s+|never\s+)?([a-z]+(?:ed|en))\b/).flatten
+    passive.reject! { |w| NOT_PARTICIPLES.include?(w) }
+    passive.reject! { |w| %w[based called named used intended supposed allowed related limited interested derived].include?(w) }
+    findings << Finding.new(path, line, "3.2", "possible passive (#{passive.first}) — name the actor") unless passive.empty?
+
+    cluster = s.scan(/\b(?:[a-z]+[ -]){2,}[a-z]+\b/).find do |c|
+      parts = c.split(/[ -]/)
+      parts.size >= 3 && parts.all? { |w| DOMAIN_NOUNS.include?(w) }
+    end
+    findings << Finding.new(path, line, "2.1", "noun cluster: #{cluster.strip.inspect}") if cluster
+
+    findings << Finding.new(path, line, "8.1", "more than one em-dash aside — split the sentence") if s.count("—") > 1
+  end
+
+  findings
+end
+
+verbose = ARGV.delete("--verbose") || ARGV.delete("-v")
+targets = ARGV.reject { |a| a.start_with?("-") }
+if targets.empty?
+  root = File.expand_path("../guides", __dir__)
+  targets = Dir.glob("#{root}/**/*.md").reject { |f| File.basename(f) =~ /\A(CLAUDE|README)\.md\z/ }
+end
+
+all = targets.flat_map { |f| lint(f) }
+
+if verbose || all.size <= 40
+  all.sort_by { |f| [f.file, f.line] }.each do |f|
+    rel = f.file.sub("#{Dir.pwd}/", "")
+    puts format("%s:%d  [%s %s] %s", rel, f.line, f.rule, RULE_NAMES[f.rule], f.message)
+  end
+  puts
+end
+
+if all.empty?
+  puts "ste_check: #{targets.size} pages clean"
+  exit 0
+end
+
+puts "#{all.size} findings across #{all.map(&:file).uniq.size} of #{targets.size} pages"
+all.group_by(&:rule).sort_by { |_, v| -v.size }.each do |rule, v|
+  puts format("  %-4s %-16s %3d", rule, RULE_NAMES[rule], v.size)
+end
+exit 1

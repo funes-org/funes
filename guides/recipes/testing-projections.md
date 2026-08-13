@@ -33,7 +33,7 @@ end
 
 That gives you three methods: `interpret`, `initial_state`, and `final_state`. They all use the binding you declared, so you don't have to repeat the projection class on every call.
 
-The helper itself is a plain Ruby module — no test-framework-specific machinery — so the same `include` works in an RSpec example group:
+The helper itself is a plain Ruby module, with no test-framework-specific machinery, so the same `include` works in an RSpec example group:
 
 ```ruby
 # spec/projections/outstanding_balance_projection_spec.rb
@@ -89,7 +89,7 @@ end
 
 ### The `at:` parameter
 
-Every interpretation block receives a temporal reference — the `at` value — alongside the state and event. `interpret` defaults `at:` to `Time.current`, but you can supply a specific time when the interpretation logic depends on it:
+Every interpretation block receives a temporal reference, the `at` value, alongside the state and event. `interpret` defaults `at:` to `Time.current`, but you can supply a specific time when the interpretation logic depends on it:
 
 ```ruby
 test "records the payment date" do
@@ -102,7 +102,7 @@ test "records the payment date" do
 end
 ```
 
-Passing a `Date` instead of a `Time` is also supported — Funes coerces it to the beginning of that day.
+You can pass a `Date` instead of a `Time`; Funes coerces it to the beginning of that day.
 
 ### Overriding the bound projection
 
@@ -150,7 +150,7 @@ end
 
 ## Putting it together
 
-The helper hands you three primitives — interpret an event, build the initial state, apply the final state — and stays out of the way after that. How you organize your tests is entirely up to you and the conventions your team already follows. The example below mirrors the projection's structure (one test per event type, plus tests for the initial and final state blocks), but feel free to split across files, group with `describe` blocks, name tests differently, or arrange them in whatever shape reads best:
+The helper hands you three primitives: interpret an event, build the initial state, apply the final state. After that it stays out of the way. How you organize your tests is entirely up to you and the conventions your team already follows. The example below mirrors the projection's structure, with one test per event type plus tests for the initial and final state blocks. But feel free to split across files, group with `describe` blocks, name tests differently, or arrange them in whatever shape reads best:
 
 ```ruby
 # test/projections/outstanding_balance_projection_test.rb

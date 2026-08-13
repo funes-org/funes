@@ -17,9 +17,9 @@ A frictionless event sourcing experience for Rails developers.
 
 ## About
 
-Funes is designed to give RoR developers a frictionless experience building systems where history is as important as the present. Built with the one-person framework philosophy in mind, it honors the Rails doctrine by providing deep **conceptual compression** over what is usually a complex architectural pattern.
+Funes gives RoR developers a frictionless experience building systems where history matters as much as the present. We built it with the one-person framework philosophy in mind. It honors the Rails doctrine by providing deep **conceptual compression** over what is usually a complex architectural pattern.
 
-At its core is a declarative DSL that favors the **interpretation of events** over all the plumbing. Instead of wiring up event stores, replay loops, and serializers, you describe how each event affects state — and Funes handles persistence, ordering, concurrency, and materialization for you:
+At its core is a declarative DSL that favors the **interpretation of events** over all the plumbing. Instead of wiring up event stores, replay loops, and serializers, you describe how each event affects state. Funes handles persistence, ordering, concurrency, and materialization for you:
 
 ```ruby
 interpretation_for Debt::PaymentReceived do |state, event, _at|
@@ -29,9 +29,9 @@ interpretation_for Debt::PaymentReceived do |state, event, _at|
 end
 ```
 
-By distilling the mechanics of event sourcing into just three core concepts — **Events**, **Event Streams**, and **Projections** — Funes handles the underlying complexity of persistence and state reconstruction for you.
+Funes distills the mechanics of event sourcing into just three core concepts: **Events**, **Event Streams**, and **Projections**. It handles the underlying complexity of persistence and state reconstruction for you.
 
-Unlike traditional event sourcing frameworks that require a total shift in how you build, Funes is designed for **progressive adoption**. It coexists seamlessly with your existing ActiveRecord models and standard controllers. You can use Funes for a single mission-critical feature while keeping the rest of your app in plain Rails.
+Traditional event sourcing frameworks require a total shift in how you build. Funes instead supports **progressive adoption**. It coexists seamlessly with your existing ActiveRecord models and standard controllers. You can use Funes for a single mission-critical feature while keeping the rest of your app in plain Rails.
 
 ### Why event sourcing?
 
@@ -39,8 +39,8 @@ In a typical Rails app, data has no past — only a present. You `update!` a rec
 
 This gives you:
 
-- **Complete audit trail** — every state change is recorded, forever
-- **Temporal queries** — "what was the entity state on December 1st?", with full bi-temporal control over record time (when the system learned a fact) and actual time (when it really happened)
+- **Complete audit trail** — Funes records every state change, forever
+- **Temporal queries** — what was the entity state on December 1st? You get full bi-temporal control over record time (when the system learned a fact) and actual time (when it really happened)
 - **Multiple interpretations** — the same events, different ways to interpret state for different use cases
 - **Safer refactoring** — rebuild any state from the event log
 

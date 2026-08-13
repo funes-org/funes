@@ -16,12 +16,12 @@ nav_order: 4
 
 ---
 
-When an append fails, two independent things can have gone wrong: the event itself can be invalid, or the event can be valid but lead to an invalid state once a consistency projection replays it. Funes keeps these two failure modes apart so your form can show the right message in the right place.
+When an append fails, two independent things can have gone wrong. The event itself can be invalid. Or the event can be valid but lead to an invalid state once a consistency projection replays it. Funes keeps these two failure modes apart, so your form can show the right message in the right place.
 
 Every event exposes three error collections. They all return `ActiveModel::Errors`, so anything you'd do with a Rails model's `errors` works here too.
 
 {: .important }
-Handle these errors at event creation time. The event log is meant to record what really happened, so the developer's job is to keep bad events out of it in the first place. The three error collections below exist so you can surface the right message in the right place when an append doesn't go through, but the goal is always the same: keep the log as correct as you possibly can.
+Handle these errors at event creation time. The event log is meant to record what really happened. Your job is to keep bad events out of it in the first place. The three error collections below exist so you can surface the right message when an append doesn't go through. The goal is always the same: keep the log as correct as you possibly can.
 
 ## `own_errors` — event-side failures
 
@@ -50,7 +50,7 @@ If the event itself is fine but its effect violates a business rule, the message
 
 ## `errors` — both collections, merged
 
-`errors` returns the union of `own_errors` and `state_errors`. State errors are wrapped with a localized prefix (`"Led to invalid state: …"`) so you can tell at a glance which side of the validation rejected them:
+`errors` returns the union of `own_errors` and `state_errors`. Funes wraps state errors with a localized prefix (`"Led to invalid state: …"`), so you can tell at a glance which side of the validation rejected them:
 
 ```ruby
 event = stream.append(Order::Placed.new(total: -10))
@@ -61,7 +61,7 @@ event.errors.full_messages
 
 ## Choosing the right one
 
-A quick rule of thumb:
+A quick guide:
 
 - Highlighting a specific field on the form? Use `own_errors` — you only want the event's own field-level failures, not the cross-cutting state errors.
 - Highlighting how a specific event led to invalid state on its creation form? Use `state_errors` on the form's header after returning an `:unprocessable_entity`
