@@ -7,14 +7,14 @@ has_children: true
 
 # Recipes
 
-Task-focused guides for the things you actually do with Funes. Each recipe assumes you've met the [Concepts](/concepts/) and shows you how to put them to work in a real Rails app — appending events from controllers, translating messages, coordinating with sibling writes, querying history, and shipping projections to whatever destination fits.
+The recipes in this section are task-focused guides for the things you actually do with Funes. Each recipe assumes that you've met the [Concepts](/concepts/) and shows you how to put them to work in a real Rails app: append events from controllers, translate messages, coordinate with sibling writes, interpret events with a historic perspective, and ship projections to the destination that fits.
 
-- [Setting up projections](/recipes/materialization-models/) — virtual or persistent (default-database or custom-destination) projections
+- [Set up projections](/recipes/materialization-models/) — virtual or persistent (default-database or custom-destination) projections
 - [Events as first-class Rails citizens](/recipes/events-the-rails-way/) — forms, controllers, and I18n all work as you'd expect
-- [Validating events in interpretation time](/recipes/validating-events-in-interpretation-time/) — add errors from inside an interpretation block, with both event and state in view
-- [Reading the right error collection](/recipes/error-collections/) — pick between `own_errors`, `state_errors`, and the merged `errors` depending on what you need to show
+- [Validate events in interpretation time](/recipes/validating-events-in-interpretation-time/) — add errors from inside an interpretation block, with both the event and the state in view
+- [Read the right error collection](/recipes/error-collections/) — pick between `own_errors`, `state_errors`, and the merged `errors` for what you need to show
 - [Atomic writes](/recipes/atomic-writes/) — coordinate `append!` with sibling writes inside a transaction you control
-- [Attaching meta information to events](/recipes/attaching-meta-information/) — record the user and request context behind every event
-- [Building bi-temporal event streams](/recipes/bi-temporal-event-streams/) — query by `as_of` and `at` for full historical reconstruction
-- [Testing projections](/recipes/testing-projections/) — exercise interpretations in isolation with `ProjectionTestHelper`
-- [Referencing Active Record models](/recipes/referencing-active-record-models/) — point events and materialization models at the rest of your Rails app with `refers_to`
+- [Attach meta information to events](/recipes/attaching-meta-information/) — record the user and request context behind every event
+- [Build bi-temporal event streams](/recipes/bi-temporal-event-streams/) — interpret with `as_of` and `at` for full historical reconstruction
+- [Test projections](/recipes/testing-projections/) — exercise interpretations in isolation with `ProjectionTestHelper`
+- [Reference Active Record models](/recipes/referencing-active-record-models/) — point events and materialization models at the rest of your Rails app with `refers_to`

@@ -1,11 +1,11 @@
 ---
-title: Referencing Active Record models
+title: Reference Active Record models
 layout: default
 parent: Recipes
 nav_order: 9
 ---
 
-# Referencing Active Record models
+# Reference Active Record models
 {: .no_toc }
 
 ## Table of contents
@@ -16,11 +16,11 @@ nav_order: 9
 
 ---
 
-Most facts point at something in your existing Rails app: a debt is issued *to a customer*, a payment lands *in an account*. But an event is serialized as plain JSON in the `props` column, so it cannot hold an Active Record object. `refers_to` gives you the association-like API you'd expect while storing only what belongs in an immutable fact — the referenced record's id.
+Most facts point at something in your existing Rails app: you issue a debt *to a customer*, a payment lands *in an account*. But Funes serializes an event as plain JSON in the `props` column, so the event cannot hold an Active Record object. `refers_to` gives you the association-like API you'd expect, while it stores only what belongs in an immutable fact — the referenced model's id.
 
 This recipe assumes you're comfortable with [events](/concepts/event/) and [projections](/concepts/projection/).
 
-## Declaring a reference on an event
+## Declare a reference on an event
 
 Call `refers_to` in the event definition, alongside your attributes:
 
@@ -39,7 +39,7 @@ module Debt
 end
 ```
 
-That single line defines three things: a `customer_id` attribute, a `customer=` writer that accepts the record, and a `customer` reader that loads it back.
+That single line defines three things: a `customer_id` attribute, a `customer=` writer that accepts the model, and a `customer` reader that loads it back.
 
 ```ruby
 customer = Customer.find(42)
@@ -50,9 +50,9 @@ event.customer     # => #<Customer id: 42, name: "Ada">
 event.attributes   # => { "amount" => 1000, "at" => ..., "customer_id" => 42 }
 ```
 
-Notice what `attributes` contains: `customer_id`, never `customer`. The id is the whole of what gets written to the log.
+Notice what `attributes` contains: `customer_id`, never `customer`. The id is everything that Funes writes to the log.
 
-## Reading the reference in an interpretation
+## Read the reference in an interpretation
 
 Because the reader is just a method on the event, interpretation blocks use it directly:
 
@@ -65,14 +65,14 @@ interpretation_for Debt::Issued do |state, event, at|
 end
 ```
 
-The record is fetched lazily on that first call and memoized afterwards, so replaying a stream doesn't re-query for every event that shares a reference.
+The reader fetches the model lazily on that first call and memoizes it afterwards, so a stream replay doesn't re-query for every event that shares a reference.
 
 {: .note }
-The reader returns the referenced record's **current** state — it's a live lookup, not a snapshot of how the record looked when the event happened. If the fact itself needs the old value (the customer's name *at the time*), copy that value into an attribute on the event instead. And if the record has since been deleted, the reader returns `nil` rather than raising.
+The reader returns the referenced model's **current** state — it's a live lookup, not a snapshot of how the model looked when the event happened. If the fact itself needs the old value (the customer's name *at the time*), copy that value into an attribute on the event instead. And if the model no longer exists, the reader returns `nil` rather than raise an error.
 
 ## Options
 
-`refers_to` accepts the same three options you'd reach for with `belongs_to`:
+`refers_to` accepts the same three options you'd expect from `belongs_to`:
 
 ```ruby
 module Loan
@@ -85,11 +85,11 @@ end
 
 | Option | What it does | Default |
 |:-------|:-------------|:--------|
-| `class_name` | Name of the referenced class, as a **string** — passing the class itself raises `ArgumentError`. Must be fully qualified for namespaced models (`"Billing::Customer"`). Resolved lazily, so autoloading stays happy. | The camelized reference name |
+| `class_name` | Name of the referenced class, as a **string** — the class object itself raises `ArgumentError`. It must be fully qualified for namespaced models (`"Billing::Customer"`). Funes resolves it lazily, so autoloading stays happy. | The camelized reference name |
 | `foreign_key` | The attribute that stores the id | `"#{name}_id"` |
 | `required` | Adds a presence validation on the foreign key, so an event without the reference is invalid and never reaches the log | `false` |
 
-Declare as many references as you need, including two pointing at the same class:
+Declare as many references as you need, including two that point at the same class:
 
 ```ruby
 module Trade
@@ -132,14 +132,14 @@ summary = stream.projected_with(DebtSummaryProjection)
 summary.customer # => #<Customer id: 42, name: "Ada">
 ```
 
-Only the id travels in `attributes`, so the reference survives the rebuild that `materialize!` performs. This works for [virtual](/recipes/materialization-models/virtual/) materialization models and for those persisted through `persist_materialization_model_with`.
+Only the id travels in `attributes`, so the reference survives the rebuild that `materialize!` performs. This works for [virtual](/recipes/materialization-models/virtual/) materialization models and for those you persist through `persist_materialization_model_with`.
 
 ## A note on ActiveRecord materialization models
 
 {: .warning }
 For an **ActiveRecord-backed** materialization model, declare a regular `belongs_to` association instead. That's the idiomatic tool there, and it brings preloading and `inverse_of` with it.
 
-`refers_to` can work on such a model, but only when the foreign key already exists as a column — and even then `belongs_to` remains the better choice. Without that column the failure arrives late and points at the wrong thing: your interpretation blocks read and write the reference correctly, the foreign key gets populated, and then `materialize!` feeds `attributes` into an upsert and raises
+`refers_to` can work on such a model, but only when the foreign key already exists as a column — and even then `belongs_to` remains the better choice. Without that column the failure arrives late and points at the wrong thing: your interpretation blocks read and write the reference correctly, Funes fills the foreign key, and then `materialize!` feeds `attributes` into an upsert and raises
 
 ```
 ActiveModel::UnknownAttributeError: unknown attribute 'customer_id' for DebtSummary.

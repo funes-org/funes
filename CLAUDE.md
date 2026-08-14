@@ -3,6 +3,17 @@
 Guidance for Claude Code (and other coding agents) working in this repository.
 For writing guides content, see `guides/CLAUDE.md`.
 
+## Prose style
+
+All prose in this repository (README, guides, changelog) uses the canonical
+phrasing listed in `TERMINOLOGY.md` and follows the Simplified Technical
+English rules in the STE section of `guides/CLAUDE.md`.
+
+In `CHANGELOG.md`, this applies only to entries for versions greater than
+0.3.0 (the `## [Unreleased]` section and future releases). Never rewrite the
+entries of released versions up to and including 0.3.0 — they are historical
+records.
+
 ## Changelog
 
 `CHANGELOG.md` strictly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):

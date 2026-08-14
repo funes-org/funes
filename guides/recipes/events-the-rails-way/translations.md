@@ -1,12 +1,12 @@
 ---
-title: Translating attributes and messages
+title: Translate attributes and messages
 layout: default
 parent: Events as first-class Rails citizens
 grand_parent: Recipes
 nav_order: 4
 ---
 
-# Translating attributes and messages
+# Translate attributes and messages
 {: .no_toc }
 
 ## Table of contents
@@ -19,7 +19,7 @@ nav_order: 4
 
 Because events are `ActiveModel` objects, every Rails I18n convention you already use for `ActiveRecord` models works on them too. There's no Funes-specific machinery to learn — just a couple of extra keys Funes emits when state validation fails.
 
-## Translating attribute names
+## Translate attribute names
 
 `form_with model: @event` calls `human_attribute_name` to label every field. Translate event attributes the same way you translate model attributes — under `activemodel.attributes.<event_class>`:
 
@@ -36,7 +36,7 @@ pt-BR:
 
 The class name is the underscored, slash-separated version of the event class — `Debt::Issued` becomes `debt/issued`. With this in place, `<%= f.label :amount %>` renders "Valor" for `pt-BR` and "Amount" for `en`.
 
-## Translating validation messages
+## Translate validation messages
 
 Standard `ActiveModel` validators (`presence`, `numericality`, `format`, `inclusion`, …) read their messages from `activemodel.errors.models.<event_class>.attributes.<attribute>.<validator>`. Funes adds nothing on top:
 
@@ -54,7 +54,7 @@ pt-BR:
               blank: "é obrigatório"
 ```
 
-`@event.errors.full_messages` returns translated strings the moment the locale is set.
+`@event.errors.full_messages` returns translated strings the moment you set the locale.
 
 ## Funes-specific keys
 

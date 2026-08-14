@@ -1,11 +1,11 @@
 ---
-title: Testing projections
+title: Test projections
 layout: default
 parent: Recipes
 nav_order: 8
 ---
 
-# Testing projections
+# Test projections
 {: .no_toc }
 
 ## Table of contents
@@ -16,7 +16,7 @@ nav_order: 8
 
 ---
 
-Projections are pure functions: given a state and an event, they return a new state. That makes them straightforward to test — one interpretation at a time, without replaying an entire event stream. `Funes::ProjectionTestHelper` ships a small set of methods for exactly that, letting you exercise each part of a projection in isolation.
+Projections are pure functions: given a state and an event, they return a new state. That makes them straightforward to test — one interpretation at a time, without a replay of an entire event stream. `Funes::ProjectionTestHelper` ships a small set of methods for exactly that, so you can exercise each part of a projection in isolation.
 
 ## Setup
 
@@ -46,9 +46,9 @@ end
 
 The examples below use minitest assertions, but the helper calls themselves are identical under RSpec — swap in `expect(...)` matchers and you're done.
 
-## Testing event interpretations
+## Test event interpretations
 
-`interpret` runs a single `interpretation_for` block in isolation. You pass an event instance and the state you want to start from (via the `given:` keyword). It returns the state produced by that interpretation:
+`interpret` runs a single `interpretation_for` block in isolation. You pass an event instance and the state you want to start from (via the `given:` keyword). It returns the state that the interpretation produces:
 
 ```ruby
 test "issuing a debt sets the outstanding balance" do
@@ -60,7 +60,7 @@ test "issuing a debt sets the outstanding balance" do
 end
 ```
 
-Because `interpret` returns the new state, you can fold a sequence of events with `inject` to simulate an event stream without building one:
+Because `interpret` returns the new state, you can fold a sequence of events with `inject` to simulate an event stream without the need to build one:
 
 ```ruby
 test "a payment reduces the outstanding balance" do
@@ -72,7 +72,7 @@ test "a payment reduces the outstanding balance" do
 end
 ```
 
-### Testing validation side effects
+### Test validation side effects
 
 Because `interpret` returns the state object directly, you can assert on validations too:
 
@@ -102,9 +102,9 @@ test "records the payment date" do
 end
 ```
 
-Passing a `Date` instead of a `Time` is also supported — Funes coerces it to the beginning of that day.
+You can also pass a `Date` instead of a `Time` — Funes coerces it to the beginning of that day.
 
-### Overriding the bound projection
+### Override the bound projection
 
 When a single test needs to exercise a different projection, pass it explicitly with the `projection:` keyword:
 
@@ -114,7 +114,7 @@ result = interpret(event, given: state, projection: AlternateProjection)
 
 `initial_state` and `final_state` accept the same keyword for the same reason.
 
-## Testing initial state
+## Test the initial state
 
 If your projection defines an `initial_state` block, use `initial_state` to test it in isolation:
 
@@ -135,7 +135,7 @@ test "initial state records the query time" do
 end
 ```
 
-## Testing final state
+## Test the final state
 
 If your projection defines a `final_state` block, use `final_state` to test it. Pass the state to finalize via `given:`:
 
@@ -148,9 +148,9 @@ test "final state computes days since issuance" do
 end
 ```
 
-## Putting it together
+## Put it all together
 
-The helper hands you three primitives — interpret an event, build the initial state, apply the final state — and stays out of the way after that. How you organize your tests is entirely up to you and the conventions your team already follows. The example below mirrors the projection's structure (one test per event type, plus tests for the initial and final state blocks), but feel free to split across files, group with `describe` blocks, name tests differently, or arrange them in whatever shape reads best:
+The helper hands you three primitives — interpret an event, build the initial state, apply the final state — and stays out of the way after that. How you organize your tests is entirely up to you and the conventions your team already follows. The example below mirrors the projection's structure: one test per event type, plus tests for the initial and final state blocks. You are free to split tests across files, group them with `describe` blocks, or arrange them in the shape that reads best:
 
 ```ruby
 # test/projections/outstanding_balance_projection_test.rb
