@@ -7,7 +7,7 @@ For writing guides content, see `guides/CLAUDE.md`.
 
 All prose in this repository (README, guides, changelog) uses the canonical
 phrasing listed in `TERMINOLOGY.md` and follows the Simplified Technical
-English rules in the STE section of `guides/CLAUDE.md`.
+English rules in `STE.md`, both at the repository root.
 
 In `CHANGELOG.md`, this applies only to entries for versions greater than
 0.3.0 (the `## [Unreleased]` section and future releases). Never rewrite the
