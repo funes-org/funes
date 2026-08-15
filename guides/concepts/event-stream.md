@@ -82,7 +82,8 @@ class DebtEventStream < Funes::EventStream
   consistency_projection VirtualOutstandingBalanceProjection
 end
 
-# This payment exceeds what's owed — the consistency check rejects it
+# The event itself is valid but payment exceeds what's owed —
+# the resulting state breaks the invariant, so Funes denies the append
 invalid_event = Debt::PaymentReceived.new(principal_amount: 999_999, 
                                           interest_amount: 0, 
                                           at: Time.current)
