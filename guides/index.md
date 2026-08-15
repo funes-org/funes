@@ -31,7 +31,7 @@ end
 
 Funes distills the mechanics of event sourcing into three core concepts: **Events**, **Event Streams**, and **Projections**.
 
-Traditional event sourcing frameworks require a total shift in how you build. Funes does not: it supports **progressive adoption** and coexists with your existing Active Record models and standard controllers. You can use Funes for a single mission-critical feature and keep the rest of your app in plain Rails.
+Traditional event sourcing tools require a shift in how you build. Funes does not: it supports **progressive adoption** and coexists with your existing Active Record models and standard controllers. You can use Funes for a single mission-critical feature and keep the rest of your app in plain Rails.
 
 ### Why event sourcing?
 
