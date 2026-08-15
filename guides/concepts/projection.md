@@ -24,7 +24,7 @@ Projections are the glue between the immutable log and what your application act
 
 Every projection must have a **materialization model** — the class that holds the state that the projection builds. Declare it in the projection definition with `materialization_model`. It is one of two types:
 
-- **Virtual** — usually an `ActiveModel`. It lives only in memory, and Funes recomputes it on demand from the events. Funes writes nothing; the next query rebuilds the state from scratch.
+- **Virtual** — usually an `ActiveModel`. It lives only in memory. Funes recomputes it on demand from the events. The state you get back is ephemeral.
 - **Persistent** — Funes writes it somewhere durable, so you can query it directly without a replay. Two flavors:
   - **Database (default)** — usually an `ActiveRecord`. Funes upserts a row in a Funes-shaped table on every relevant event; scaffold the migration with `bin/rails generate funes:materialization_table`.
   - **Custom destination** — usually an `ActiveModel`. Supply your own persistence method to send the materialized state anywhere else (S3, Redis, a search index, an external API, etc.).
@@ -100,7 +100,7 @@ end
 {: .important }
 The `at` parameter inside `interpretation_for` is each event's own occurrence date/time — when the fact happened. The `at` inside `initial_state` and `final_state` is the **query's temporal reference** — the point in time that you ask about.
 
-Every block returns the (possibly mutated) state object. The DSL is functional — state in, state out, no hidden mutation. That style keeps projections predictable and [trivial to test](/recipes/testing-projections/).
+Every block returns the (possibly mutated) state object. The DSL is _functional flavored_ — state in, state out, no hidden mutation. That style keeps projections predictable and [trivial to test](/recipes/testing-projections/).
 
 The per-event handler is where event-sourced systems usually accumulate (or shed) complexity, so Funes makes those few lines pull a lot of weight. Each interpretation stays small, and the framework handles replay, ordering, persistence, and concurrency around it. Most of your domain logic lives here.
 
@@ -148,7 +148,7 @@ sequenceDiagram
         Stream->>DB: BEGIN transaction
         Stream->>DB: INSERT event row
         Stream->>Stream: Transactional projection — replay and validate the resulting state
-        Stream->>DB: Transactional projection — persist the materialization (upsert by default)
+        Stream->>DB: Transactional projection — persist the materialization model (upsert by default)
         alt validation or persist fails
             Stream->>DB: ROLLBACK ❌
             Note over App: ❌ event.persisted? = false
