@@ -22,10 +22,10 @@ Funes gives Rails developers a frictionless way to build systems where history i
 The core of Funes is a declarative DSL that favors the **interpretation of events** over the plumbing. You do not wire up event stores, replay loops, or serializers. You describe how each event affects state, and Funes handles persistence, ordering, concurrency, and materialization for you:
 
 ```ruby
-interpretation_for Debt::PaymentReceived do |state, event, _at|
+interpretation_for Debt::PaymentReceived do |state, event, at|
   state.outstanding_balance -= event.principal_amount
-  state.last_payment_at = event.at
-  state
+  state.last_payment_at = at
+  state # returns the new state version
 end
 ```
 
