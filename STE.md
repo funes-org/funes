@@ -1,8 +1,11 @@
 # Simplified Technical English (STE)
 
-Prose in this repository follows the writing rules of ASD-STE100 (Simplified
-Technical English), adapted for software documentation. This document is
-self-contained — apply it directly, without consulting the specification.
+User-facing documentation in this repository — the guides, the README, and the
+changelog — must follow the writing rules of ASD-STE100 (Simplified Technical
+English), adapted for software documentation. Code documentation, commit
+messages, and instruction files are out of scope; `TERMINOLOGY.md` still binds
+everywhere. This document is self-contained — apply it directly, without
+consulting the specification.
 Where a rule here conflicts with the Voice & Tone section of
 `guides/CLAUDE.md`, this document wins, except for the deliberate deviations
 listed at the end.

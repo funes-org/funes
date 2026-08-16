@@ -1,9 +1,13 @@
 # Funes Terminology
 
 Canonical phrasing for Funes concepts, for anyone (human or agent) writing
-prose in this repository — guides, README, changelog, or code documentation. Some concepts have one correct phrasing; wrong paraphrases
+prose in this repository — guides, README, changelog, code documentation, and
+commit messages. Some concepts have one correct phrasing; wrong paraphrases
 misdescribe the mechanism. Add a row whenever a review corrects a concept's
 phrasing, with a short note on why.
+
+The writing rules in `STE.md` have a narrower reach than this file: they cover
+user-facing documentation only. Canonical phrasing binds everywhere.
 
 | Wrong | Right | Why |
 |---|---|---|
