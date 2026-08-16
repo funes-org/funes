@@ -3,6 +3,49 @@
 Guidance for Claude Code (and other coding agents) working in this repository.
 For writing guides content, see `guides/CLAUDE.md`.
 
+## Prose style
+
+Two documents at the repository root govern prose, and they reach different
+files. Read both before you write or edit anything they cover.
+
+- **`TERMINOLOGY.md`** lists the canonical phrasing for Funes concepts. Use it
+  in every piece of prose you write here: guides, README, changelog, code
+  documentation, and commit messages. A concept keeps one name everywhere.
+- **`STE.md`** carries the Simplified Technical English writing rules. They
+  apply to user-facing documentation — the guides, the README, and the
+  changelog. Code documentation, commit messages, and instruction files like
+  this one are out of scope.
+
+For the guides, `guides/CLAUDE.md` adds structure and voice rules on top of
+both.
+
+### Review checklist
+
+Repeated here so that it reaches you wherever you work in the repository, not
+only under `guides/`. When you write or change any prose that `STE.md` covers,
+scan it for, in order:
+
+1. Passive voice ("is stored", "are created", "it is recommended").
+2. Sentences over the 20/25-word limits.
+3. `-ing` verb forms that are not technical names (including headings).
+4. Vague "this/it/these" without a noun.
+5. Noun clusters of four or more nouns.
+6. Perfect/progressive tenses and wordy substitutable phrases.
+7. Paragraphs over six sentences or with more than one topic.
+
+`STE.md` stays the canonical source: it carries the rule behind each item, the
+word-substitution table that item 6 refers to, and the deliberate deviations.
+Read it when an item needs a judgment call. When this list changes, change it
+in `STE.md` first.
+
+The README does not follow `STE.md` yet. Bring it in line in a change of its
+own; do not assume its current prose is a model to copy.
+
+In `CHANGELOG.md`, both documents apply only to entries for versions greater
+than 0.3.0 (the `## [Unreleased]` section and future releases). Never rewrite
+the entries of released versions up to and including 0.3.0 — they are
+historical records.
+
 ## Changelog
 
 `CHANGELOG.md` strictly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):

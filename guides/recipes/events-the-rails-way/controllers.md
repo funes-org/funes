@@ -1,15 +1,15 @@
 ---
-title: Appending events from a controller
+title: Append events from a controller
 layout: default
 parent: Events as first-class Rails citizens
 grand_parent: Recipes
 nav_order: 2
 ---
 
-# Appending events from a controller
+# Append events from a controller
 {: .no_toc }
 
-To record an event, build it and call `.append` on the stream for the relevant entity. The result behaves exactly like saving an `ActiveRecord` model:
+To record an event, build it and call `.append` on the stream for the relevant entity. The result behaves exactly like an `ActiveRecord` `save`:
 
 ```ruby
 # app/controllers/debts_controller.rb

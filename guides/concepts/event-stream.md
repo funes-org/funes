@@ -16,9 +16,9 @@ nav_order: 2
 
 ---
 
-An **Event Stream** is a sequenced group of events from the event log, identified by a stream ID. In practice, a stream usually represents a single entity instance — `Account:42`, `Order:99`. The stream is the primary interface for writing to the event log and interpretations orchestrating.
+An **Event Stream** is a sequenced group of events from the event log, under one stream ID. In practice, a stream usually represents a single entity instance — `Account:42`, `Order:99`. The stream is the primary interface to write to the event log and to orchestrate interpretations.
 
-## Defining a stream
+## Define a stream
 
 Streams are Ruby classes that inherit from `Funes::EventStream`. Name the class after the entity it tracks:
 
@@ -27,9 +27,9 @@ Streams are Ruby classes that inherit from `Funes::EventStream`. Name the class 
 class DebtEventStream < Funes::EventStream; end
 ```
 
-There is no schema to migrate, no table to create — every stream lives logically inside the shared event log (`event_entries` table), scoped by the stream identifier you'll pass in next.
+There is no schema to migrate, no table to create — every stream lives logically inside the shared event log (the `event_entries` table), under the stream identifier you'll pass in next.
 
-## Getting a stream instance
+## Get a stream instance
 
 Call `.for(idx)` on your stream class to get an instance scoped to a specific entity:
 
@@ -37,11 +37,11 @@ Call `.for(idx)` on your stream class to get an instance scoped to a specific en
 stream = DebtEventStream.for("debts-123")
 ```
 
-The string passed to `.for` is the stream identifier (`idx`). It links all events for that entity together and ties them to their read models.
+The string you pass to `.for` is the stream identifier (`idx`). It links all events for that entity together and ties them to their projections.
 
-You don't need to create a stream before using it. If no events have been recorded for a given `idx`, the stream is implicitly created the moment the first event is appended. There is no setup step — `DebtEventStream.for("debts-456")` works whether `"debts-456"` has a hundred events or none at all.
+You don't need to create a stream before you use it. If a given `idx` has no events yet, Funes creates the stream implicitly when you append the first event. There is no setup step — `DebtEventStream.for("debts-456")` works whether `"debts-456"` has a hundred events or none at all.
 
-## Appending events
+## Append events
 
 With the stream in hand, call `.append` to record an event:
 
@@ -51,7 +51,7 @@ stream.append(Debt::Issued.new(amount: 100,
                                at: Time.current))
 ```
 
-The two calls can be chained if you don't need to keep the stream reference around:
+If you don't need to keep the stream reference around, you can chain the two calls:
 
 ```ruby
 DebtEventStream.for("debts-123")
@@ -64,25 +64,26 @@ DebtEventStream.for("debts-123")
 
 When you need to coordinate an `append` with other writes inside a transaction your code already controls, use `append!`. See the [Atomic writes](/recipes/atomic-writes/) recipe for the full pattern.
 
-## Validating events
+## Validate events
 
-Every append starts with `event.valid?` — the `ActiveModel` validations declared on the event class always run, so a malformed event is rejected before it reaches the log.
+Every append starts with `event.valid?` — the `ActiveModel` validations on the event class always run, so Funes rejects a malformed event before it reaches the log.
 
-You can also opt into a **consistency validation**. An interpretation (see [Projections](/concepts/projection/)) replays the new event on top of the previously persisted ones and checks the logical invariants of the resulting state. If those invariants don't hold, the event is rejected — even if `valid?` would have passed.
+You can also opt into a **consistency validation**. An interpretation (see [Projections](/concepts/projection/)) replays the new event on top of the previously persisted ones and checks the logical invariants of the resulting state. If those invariants don't hold, Funes rejects the event — even if `valid?` would have passed.
 
 {: .note }
-With the stream configured, your responsibility ends at `.append`. Funes handles the rest — invoking `valid?`, replaying the interpretation, gathering errors, and deciding whether to persist.
+After you configure the stream, your responsibility ends at `.append`. Funes handles the rest: it invokes `valid?`, replays the interpretation, gathers errors, and decides whether to persist.
 
-### Defining a consistency validation
+### Define a consistency validation
 
-Wire it up with `consistency_projection`, passing the class that owns the invariant. In this example `VirtualOutstandingBalanceProjection` enforces the rule that the outstanding balance must never go negative — overpayments are not allowed:
+Wire it up with `consistency_projection` and pass the class that owns the invariant. In this example, `VirtualOutstandingBalanceProjection` enforces the rule that the outstanding balance must never go negative — it forbids overpayments:
 
 ```ruby
 class DebtEventStream < Funes::EventStream
   consistency_projection VirtualOutstandingBalanceProjection
 end
 
-# This payment exceeds what's owed — the consistency check rejects it
+# The event itself is valid but payment exceeds what's owed —
+# the resulting state breaks the invariant, so Funes denies the append
 invalid_event = Debt::PaymentReceived.new(principal_amount: 999_999, 
                                           interest_amount: 0, 
                                           at: Time.current)
@@ -94,9 +95,9 @@ invalid_event.errors.any?   # => true
 
 ## Optimistic concurrency control
 
-Each event on a stream carries a sequential `version` number. When you call `.append`, the stream reads its latest version (N) and assigns an incremented version (N+1) to the new event before persisting it.
+Each event on a stream carries a sequential `version` number. When you call `.append`, the stream reads its latest version (N), assigns N+1 to the new event, and then persists it.
 
-If two processes append at the same time, both read N and both try to write at N+1. Only one of those writes can succeed — the second event is rejected and `event.persisted?` returns `false`. In this case the losing process can re-read the stream and retry.
+If two processes append at the same time, both read N and both try to write at N+1. Only one of those writes can succeed — Funes rejects the second event, and `event.persisted?` returns `false`. The losing process can then re-read the stream and retry.
 
 ```mermaid
 sequenceDiagram
@@ -116,4 +117,4 @@ sequenceDiagram
 ```
 ---
 
-Up next: [Projection](/concepts/projection/), the last of the three concepts — how a stream of events becomes the state your application reads.
+Up next: [Projection](/concepts/projection/), the last of the three concepts — how an event stream becomes the state your application reads.

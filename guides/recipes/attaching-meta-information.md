@@ -1,11 +1,11 @@
 ---
-title: Attaching meta information to events
+title: Attach meta information to events
 layout: default
 parent: Recipes
 nav_order: 6
 ---
 
-# Attaching meta information to events
+# Attach meta information to events
 {: .no_toc }
 
 ## Table of contents
@@ -16,9 +16,9 @@ nav_order: 6
 
 ---
 
-In auditable systems, knowing *what* happened is only part of the story — you also need to know *who* did it and *in what context*. **Event metainformation** lets you attach that context to every event recorded during a request, enriching your audit trail with the provenance required for compliance, debugging, and forensic analysis.
+In auditable systems, *what* happened is only part of the story — you also need to know *who* did it and *in what context*. **Event metainformation** lets you attach that context to every event that you record during a request. That enriches your audit trail with the provenance required for compliance, debugging, and forensic analysis.
 
-## Generating the initializer
+## Generate the initializer
 
 Funes ships a generator that creates a pre-configured initializer with the metainformation options already commented in:
 
@@ -26,9 +26,9 @@ Funes ships a generator that creates a pre-configured initializer with the metai
 $ bin/rails generate funes:initializer
 ```
 
-This creates `config/initializers/funes.rb` with the `event_metainformation_attributes` and `event_metainformation_validations` blocks ready to uncomment and fill in. The attributes you declare there are exposed on `Funes::EventMetainformation`, an `ActiveSupport::CurrentAttributes` subclass that gives you thread-isolated, per-request storage — automatically reset between requests, and safe under any multithreaded server such as Puma.
+This command creates `config/initializers/funes.rb` with the `event_metainformation_attributes` and `event_metainformation_validations` blocks ready to uncomment and fill in. Funes exposes the attributes you declare there on `Funes::EventMetainformation`, an `ActiveSupport::CurrentAttributes` subclass that gives you thread-isolated, per-request storage. Rails resets it between requests, and it is safe under any multithreaded server such as Puma.
 
-## Defining attributes
+## Define attributes
 
 You configure metainformation in your application's initializer. Start by declaring the attributes you need:
 
@@ -39,14 +39,14 @@ Funes.configure do |config|
 end
 ```
 
-These become thread-safe attributes on `Funes::EventMetainformation`, automatically attached to every event persisted during the same request.
+These become thread-safe attributes on `Funes::EventMetainformation`; Funes attaches them automatically to every event that it persists during the same request.
 
 {: .note }
-Attributes don't take a type — they keep whatever Ruby value you assign. Integers stay integers, strings stay strings, `nil` is allowed. The whole hash is serialized into the event's `meta_info` JSON column when the event lands, so any JSON-compatible value is preserved *ipsis literis*.
+Attributes don't take a type — they keep whatever Ruby value you assign. Integers stay integers, strings stay strings, `nil` is allowed. Funes serializes the whole hash into the event's `meta_info` JSON column when the event lands, so any JSON-compatible value survives *ipsis literis*.
 
-## Adding validations
+## Add validations
 
-Use the `event_metainformation_validations` block to enforce that the required context is always present when an event is recorded:
+Use the `event_metainformation_validations` block to enforce that the required context is always present when you record an event:
 
 ```ruby
 # config/initializers/funes.rb
@@ -61,13 +61,13 @@ Funes.configure do |config|
 end
 ```
 
-The block DSL supports all standard `ActiveModel` validators. If metainformation fails validation at the time an event is appended, Funes raises `Funes::InvalidEventMetainformation` and the database transaction is rolled back.
+The block DSL supports all standard `ActiveModel` validators. If metainformation fails validation at append time, Funes raises `Funes::InvalidEventMetainformation` and rolls back the database transaction.
 
-## Setting values per request
+## Set values per request
 
-Funes doesn't care how the values get set — only that they're in place before an `append` runs. Anything that assigns to `Funes::EventMetainformation` during the request works: a `before_action`, middleware, a service object called from the controller, even a manual assignment inside the action itself.
+Funes doesn't care how you set the values — only that they're in place before an `append` runs. Anything that assigns to `Funes::EventMetainformation` during the request works: a `before_action`, middleware, a service object called from the controller, even a manual assignment inside the action itself.
 
-What follows is one suggestion that fits most Rails apps: populate the attributes at the start of each request from a `before_action`, with a concern keeping the wiring out of `ApplicationController`. Feel free to adapt it to whatever shape your app already uses.
+What follows is one suggestion that fits most Rails apps: populate the attributes at the start of each request from a `before_action`, with a concern that keeps the wiring out of `ApplicationController`. Feel free to adapt it to whatever shape your app already uses.
 
 ```ruby
 # app/controllers/concerns/events_metainformation_attachment.rb
@@ -94,4 +94,4 @@ class ApplicationController < ActionController::Base
 end
 ```
 
-Every event appended during that request will carry the values set in this `before_action`.
+Every event that you append during that request will carry the values from this `before_action`.

@@ -1,15 +1,15 @@
 ---
-title: Rendering 404s from empty streams
+title: Render 404s from empty streams
 layout: default
 parent: Events as first-class Rails citizens
 grand_parent: Recipes
 nav_order: 3
 ---
 
-# Rendering 404s from empty streams
+# Render 404s from empty streams
 {: .no_toc }
 
-`projected_with` mirrors `ActiveRecord#find` end to end. On a hit it returns an instance of the projection's materialization model, ready for the view to render. On a miss it raises `ActiveRecord::RecordNotFound` — and because Rails already maps that exception to a 404 response, a `show` action that calls `projected_with` renders the host app's 404 page with no rescue code, no helper layer, no custom controller plumbing.
+`projected_with` mirrors `ActiveRecord#find` end to end. On a hit it returns an instance of the projection's materialization model, ready for the view to render. On a miss it raises `ActiveRecord::RecordNotFound` — and Rails already maps that exception to a 404 response. A `show` action that calls `projected_with` renders the host app's 404 page with no rescue code, no helper layer, no custom controller plumbing.
 
 ```ruby
 # app/controllers/debts_controller.rb
@@ -33,4 +33,4 @@ stream.projected_with(DebtProjection, at: Time.new(1999, 1, 1))
 # => raises ActiveRecord::RecordNotFound if every event occurred after Jan 1, 1999
 ```
 
-Funes also writes a `Rails.logger.info` line before raising, so your logs record which stream, projection, and filter values led to the empty result.
+Funes also writes a `Rails.logger.info` line before it raises, so your logs record which stream, projection, and filter values led to the empty result.
