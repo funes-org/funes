@@ -82,6 +82,26 @@ Funes does not recommend using non-primary key columns named `id`.
 
 For warnings, use the same syntax with `{: .warning }`.
 
+## Check the Links Before You Finish
+
+Never close out a change to the guides until every link on the pages you
+touched resolves. Heading renames are the usual culprit: permalinks come from
+filenames and survive a rename, but in-page anchors come from heading text, so
+a reworded heading silently breaks every cross-link that points at it.
+
+Run this check as the last step of any guides change:
+
+1. Build the site — `bundle exec rake guides:serve` regenerates `_site/`.
+2. Resolve every markdown link on the pages you changed: internal pages,
+   external URLs, and the `#anchor` on both kinds.
+3. Match an internal anchor against the `id` attribute on the built page under
+   `_site/`, not against the heading text you remember writing.
+4. When you rename a heading, grep the whole `guides/` tree for the old anchor
+   and update each link that points at it.
+
+A repository-wide edit — a style pass, a terminology change — needs the check
+over every page, not only the ones whose diff you can recall.
+
 ## What to Avoid
 
 - Passive constructions ("it is recommended that...") — say who does what
