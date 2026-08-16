@@ -31,7 +31,7 @@ Every projection must have a **materialization model** — the class that holds 
 
 For more details about the setup of each one, see the [Set up projections](/recipes/materialization-models/) recipes.
 
-A materialization model can reference regular Rails models too. Include `Funes::Associations` and declare `refers_to` exactly as you would [on an event](/concepts/event/#referencing-other-models) — the reference then reads and writes the same way on both sides of an interpretation block:
+A materialization model can reference regular Rails models too. Include `Funes::Associations` and declare `refers_to` exactly as you would [on an event](/concepts/event/#reference-other-models) — the reference then reads and writes the same way on both sides of an interpretation block:
 
 ```ruby
 # app/models/outstanding_balance.rb
