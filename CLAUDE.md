@@ -38,9 +38,6 @@ word-substitution table that item 6 refers to, and the deliberate deviations.
 Read it when an item needs a judgment call. When this list changes, change it
 in `STE.md` first.
 
-The README does not follow `STE.md` yet. Bring it in line in a change of its
-own; do not assume its current prose is a model to copy.
-
 In `CHANGELOG.md`, both documents apply only to entries for versions greater
 than 0.3.0 (the `## [Unreleased]` section and future releases). Never rewrite
 the entries of released versions up to and including 0.3.0 — they are

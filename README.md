@@ -2,25 +2,28 @@
 
 [![Gem Version](https://badge.fury.io/rb/funes-rails.svg)](https://badge.fury.io/rb/funes-rails)
 
-An event sourcing meta-framework designed to provide a frictionless experience for RoR developers to build and operate systems where history is as important as the present. Built with the one-person framework philosophy in mind, it honors the Rails doctrine by providing deep **conceptual compression** over what is usually a complex architectural pattern.
+Funes is an event sourcing meta-framework for Ruby on Rails. It helps you build and operate systems where history matters as much as the present.
 
-At its core is a declarative DSL that favors the **interpretation of events** over all the plumbing. You describe how each event affects state, and Funes handles persistence, ordering, concurrency, and materialization for you.
+It follows the one-person framework philosophy and honors the Rails doctrine with deep **conceptual compression** over a domain that is hard to keep under control.
 
-By distilling the mechanics of event sourcing into just three core concepts — **Events**, **Streams**, and **Projections** — Funes handles the underlying complexity of persistence and state reconstruction for you. It feels like the Rails you already know, giving you the power of a permanent source of truth with the same ease of use as a standard ActiveRecord model.
+A declarative, functional-flavored DSL sits at the core of Funes. The DSL favors the **interpretation of events** over the plumbing. You describe how each event affects state. Funes then handles persistence, ordering, concurrency, and materialization.
 
-Unlike traditional event sourcing frameworks that require a total shift in how you build, Funes is designed for **progressive adoption**. It is a _"good neighbor"_ that coexists seamlessly with your existing ActiveRecord models and standard controllers. You can use Funes for a single mission-critical feature — like a single complex state machine — while keeping the rest of your app in "plain old Rails."
+Funes distills the mechanics of event sourcing into three core concepts: **Events**, **Event Streams**, and **Projections**. It handles the complexity of persistence and state reconstruction for you. The result feels like the Rails you already know.
 
-> Named after Funes the Memorious, the Borges character who could forget nothing, this framework embodies the principle that in some systems, remembering everything matters.
+It does not require a total shift in how you build your application. The meta-framework actually encourages **progressive adoption** and is a _"good neighbor"_ to "plain old Rails". Funes coexists gracefully with the Rails primitives you already have in place. You can use Funes for one mission-critical feature and keep the other parts untouched.
+
+> [!TIP]
+> The name comes from "Funes the Memorious," the Borges character who could forget nothing. He and the meta-framework share that trait — what is a curse to the former is a blessing to the latter.
 
 ## Installation
 
-Add to your Gemfile:
+Add the gem to your Gemfile:
 
 ```ruby
 gem "funes-rails"
 ```
 
-Run the installation:
+Then run these commands:
 
 ```bash
 $ bin/bundle install
@@ -32,17 +35,42 @@ $ bin/rails db:migrate
 
 Funes bridges the gap between event sourcing theory and the Rails tools you already know (`ActiveModel`, `ActiveRecord`, `ActiveJob`).
 
-![core concepts](https://raw.github.com/funes-org/funes/main/concepts.png)
+```text
+ ┌────────────────────┐                      ┌──────────────────────┐
+ │       Event        │ ─── appended to ───▶ │     EventStream      │
+ └────────────────────┘                      └──────────────────────┘
+  < Funes::Event                              < Funes::EventStream
+  < ActiveModel::Model                                  │
+                                                        │
+                ┌───────────────────────────┬───────────┴───────────────┐
+                │ runs                      │ runs                      │ enqueues
+                ▼                           ▼                           ▼
+ ╭╌ < Funes::Projection ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╮
+ ╎ ┌────────────────────────┐  ┌────────────────────────┐   ┌───────────────────────┐  ╎
+ ╎ │      Consistency       │  │    n Transactional     │┐  │        n Async        │┐ ╎
+ ╎ │       Projection       │  │      Projections       ││  │      Projections      ││ ╎
+ ╎ └────────────────────────┘  └────────────────────────┘│  └───────────────────────┘│ ╎
+ ╎                              └────────────────────────┘   └───────────────────────┘ ╎
+ ╰╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌│╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌│╌╌╌╌╌╌╌╌╌╌╌╌╌╌╯
+                                       perform now                perform later
+                                            │                           │
+                                            └─────────────┬─────────────┘
+                                                          ▼
+                                           ┌─────────────────────────────┐
+                                           │ Funes::PersistProjectionJob │
+                                           └─────────────────────────────┘
+                                            < ActiveJob::Base
+```
 
 - **Events** — immutable `ActiveModel` objects that record what happened, with built-in validation and no schema migrations
-- **Projections** — transform a stream of events into a materialized state, either in-memory (`ActiveModel`) or persisted (`ActiveRecord`)
-- **Event Streams** — orchestrate writes, run double validation, and control when projections update (synchronously or via `ActiveJob`)
+- **Projections** — transform an event stream into a materialized state, either in-memory (`ActiveModel`) or persisted (usually an `ActiveRecord`)
+- **Event Streams** — orchestrate writes, run double validation, and control when projections update (synchronously or through `ActiveJob`)
 
-For a full walkthrough of each concept, see the [guides](https://docs.funes.org).
+For a full walkthrough of each concept, see the [Concepts section](https://docs.funes.org/concepts/) of the guides.
 
 ## The DSL
 
-At the heart of Funes is a declarative DSL designed so you spend your time on what matters — *interpreting events* — not on the plumbing that surrounds them.
+The declarative DSL keeps your attention on what matters: the *interpretation of events*, not the plumbing around them.
 
 A projection reads like a description of your domain logic:
 
@@ -55,74 +83,89 @@ class OutstandingBalanceProjection < Funes::Projection
     state
   end
 
-  interpretation_for Debt::PaymentReceived do |state, event, _at|
+  interpretation_for Debt::PaymentReceived do |state, event, at|
     state.outstanding_balance -= event.principal_amount
-    state.last_payment_at = event.at
+    state.last_payment_at = at
     state
   end
 end
 ```
 
-There is no event-store wiring, no manual replay loop, no serializer configuration. You declare how each event affects state, and Funes takes care of persistence, ordering, concurrency, and materialization. The same DSL scales from a single in-memory validation to a fully persisted read model.
+You write no event-store wiring, no manual replay loop, and no serializer configuration. The same DSL scales from one in-memory validation to a fully persisted projection.
+
+The chart below shows the mechanics: a projection folds the events through your interpretations, then unfolds the result into the materialization model.
+
+```text
+ ┌╌ left fold / reduce ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┐
+ ╎                                                                 ╎      unfolding into
+ ╎ ┌──────────┐   pattern matching   ┌─────────────────┐           ╎    ┌─────────────────┐
+ ╎ │  Events  │ ───────────────────▶ │ Interpretations │ ──────────╎──▶ │ Materialization │
+ ╎ └──────────┘                      └─────────────────┘           ╎    │      model      │
+ ╎  filtered by                       defined as blocks/lambdas    ╎    └─────────────────┘
+ ╎  EventStream                       in the projection definition ╎     < ActiveModel::Model (virtual)
+ ╎                                                                 ╎     < ActiveRecord::Base (persistent)
+ └╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┘
+```
 
 ## Optimistic concurrency control
 
-Funes uses optimistic concurrency control. Each event in a stream gets an incrementing version number with a unique constraint on (idx, version).
+Funes uses optimistic concurrency control. A database constraint keeps every version number unique inside its event stream. If two processes append at the same time, both events get the same version number. The database accepts one and rejects the other, and the rejected process gets a validation error. Funes needs no locks and blocks nothing.
 
-If two processes try to append to the same stream simultaneously, one succeeds and the other gets a validation error — no locks, no blocking.
-
-## Three-Tier Consistency Model
+## Three-tier consistency model
 
 Funes gives you fine-grained control over when and how projections run:
 
-| Tier                      | When it runs                 | Use case                                        |
-|:--------------------------|:-----------------------------|:------------------------------------------------|
-| Consistency Projection    | Before event is persisted    | Validate business rules against resulting state |
-| Transactional Projections | Same DB transaction as event | Critical read models needing strong consistency |
-| Async Projections         | Background job (ActiveJob)   | Reports, analytics, eventually consistent read models    |
+| Tier                      | When it runs                               | Use case                                            |
+|:--------------------------|:-------------------------------------------|:----------------------------------------------------|
+| Consistency projections   | Before Funes persists the event            | Validate business rules against the new state       |
+| Transactional projections | Same DB transaction as the event insertion | Critical projections that need strong consistency   |
+| Async projections         | Background job (ActiveJob)                 | Reports, analytics, and eventually consistent projections |
 
 ### Consistency projections
 
-* **Guard your invariants:** these run _before_ the event is saved to the log. If the resulting state (the "virtual projection") is invalid, the event is rejected and never persisted.
-* **Business logic validation:** This is where you prevent "impossible" states, such as shipping more inventory than is available or overdrawing a bank account.
+* **Guard your invariants:** consistency projections run _before_ Funes saves the event to the log. If the new state is invalid, Funes rejects the event and never persists it.
+* **Validate the business logic:** prevent "impossible" states here. Two examples: you ship more inventory than you have, or you overdraw a bank deposit.
 
 ### Transactional projections
 
-* **Atomic updates:** these update your persistent read models (`ActiveRecord`) within the same database transaction as the event.
-* **Validation before persistence:** before upserting the materialization, Funes runs ActiveRecord validations on the materialization model. If the model is invalid, an `ActiveRecord::RecordInvalid` exception is raised, the transaction rolls back, and the event is not persisted.
-* **Fail-loud on errors:** if a projection fails with a database error (e.g., constraint violation) or a validation error, the transaction rolls back, the event is marked as not persisted (`persisted?` returns `false`), and the exception (`ActiveRecord::StatementInvalid` or `ActiveRecord::RecordInvalid`) propagates. This ensures bugs are immediately visible rather than silently hidden, while keeping the event in a consistent state for any rescue logic in your application.
+* **Atomic updates:** transactional projections update the persisted materialization in the same database transaction as the event insertion.
+* **Validation before persistence:** Funes runs validations on the materialization model before its persistence. If the model is invalid, Funes raises an error and the transaction rolls back. Funes does not persist the event.
+* **Fail loud on errors:** a projection can fail with a database error, such as a constraint violation, or with a validation error. The transaction then rolls back, and `persisted?` returns `false` for the event. The exceptions (`ActiveRecord::StatementInvalid` or `ActiveRecord::RecordInvalid`, for instance) propagate. This behavior makes bugs visible and leaves the event in a consistent state for your rescue logic.
 
 ### Async projections
 
-* **Background processing:** these are offloaded to `ActiveJob`, ensuring that heavy computations don't slow down the write path.
-* **Native integration:** fully compliant with standard Rails job backends (`Sidekiq`, `Solid Queue`, etc.). You can pass standard `ActiveJob` options like `queue`, `wait`, or `wait_until`.
-* **Temporal control (`temporal_context`):** customize the temporal reference passed to the projection. The resolved value becomes the `at` parameter received by interpretation blocks. Note that this is independent from the `at:` argument of `EventStream#append` — that value sets the event's `occurred_at` (business time) and does not flow through to async projections.
-  * `:last_event_time` (Default): uses the **transaction time** (`created_at`) of the last event — i.e., when it was recorded in the database, not when the business event occurred (`occurred_at`).
-  * `:job_time`: uses the current time when the job executes.
-  * `Proc/Lambda`: allows for custom temporal logic (e.g., rounding to the `beginning_of_day`).
+* **Background jobs:** Funes offloads async projections to `ActiveJob`. Heavy computations then stay off the write path.
+* **Native integration:** async projections work with the standard Rails job backends, such as `Sidekiq` and `Solid Queue`. You can set the standard `ActiveJob` configs, such as `queue`, `wait`, or `wait_until`.
+* **Temporal control (`temporal_context`):** every interpretation block receives a timestamp as its temporal parameter. An async projection runs later, in a background job, so that timestamp needs a source. The `temporal_context` option chooses the moment that Funes passes to the blocks:
+  * `:last_event_time` (the default): uses the **transaction time** (`created_at`) of the last event. Funes records that time in the database. It is not the time when the business event occurred (`occurred_at`).
+  * `:job_time`: uses the current time at the moment the job runs.
+  * `Proc`/`Lambda`: runs your own temporal logic. For example, round the time down to the `beginning_of_day`.
+
+  Do not confuse `temporal_context` with the `at:` argument of `EventStream#append`. The `at:` argument sets the `occurred_at` of the event (business time), and its value does not reach async projections.
 
 ## Documentation
 
-Guides and full API documentation are available at [docs.funes.org](https://docs.funes.org).
+You can read the guides and the full API documentation at [docs.funes.org](https://docs.funes.org).
 
-For a hands-on example, see the [Funes Workshop](https://github.com/viniciusalmeida/funes_workshop) — a small Rails app that models a debt lifecycle (loan issuance, daily interest accrual, and payments) to demonstrate how to use Events, Streams, and Projections in a realistic financial domain.
+For a hands-on example, see the [Funes Workshop](https://github.com/viniciusalmeida/funes_workshop). The workshop is a small Rails app that models a debt lifecycle: loan issuance, daily interest accrual, and payments. It shows how to use Events, Event Streams, and Projections in a realistic financial domain.
 
 ## Performance
 
-Precise benchmarks are notoriously hard to pin down: workloads vary, and absolute numbers depend heavily on hardware, configuration, and the shape of the data. So treat the figures we publish as directional rather than definitive.
+Precise benchmarks are hard to pin down. Workloads vary, and absolute numbers depend on the hardware, the configuration, and the shape of the data. Treat the figures we publish as directional, not definitive.
 
-That said, our measurements consistently show that the complexity of event stream operations stays **sub-linear, comfortably within `O(n)`** as the log grows — which is an important property for medium/long-lived streams.
+Our measurements show that the complexity of event stream operations stays **sub-linear, comfortably within `O(n)`**, as the log grows. This property matters for event streams with a long life.
 
 You can browse the latest measurements and join the conversation in the [Performance Measurements](https://github.com/funes-org/funes/discussions/categories/performance-measurements) discussions.
 
 ## Compatibility
 
-Funes supports the following runtimes:
+Funes supports these runtimes:
 
 - **Ruby** 3.1 or newer
 - **Rails** 7.2 or newer
 
-If you're on Rails 8.0 or above, you'll need Ruby 3.2 or newer — that's a Rails 8 requirement, not a Funes one.
+If you use Rails 8.0 or newer, you also need Ruby 3.2 or newer. This limit comes from Rails 8, not from Funes.
 
 ## License
-The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
+
+The gem is open source software under the terms of the [MIT License](https://opensource.org/licenses/MIT).
