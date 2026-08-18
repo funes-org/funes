@@ -200,10 +200,30 @@ module Funes
     #
     # `Date` values are coerced to `Time` via `beginning_of_day`.
     #
+    # Event-level failures are quiet, mirroring `ActiveRecord::Base#save`: when the event's own
+    # validation fails, the consistency projection rejects the event, or a version conflict occurs
+    # (race condition on insert), `append` raises nothing — it returns the event unpersisted with
+    # its errors populated.
+    #
+    # A transactional projection failure is loud even on this non-bang form: the exception escapes
+    # the call untouched and the transaction rolls back, so the event never lands in the log
+    # (`event.persisted?` is false after the rescue). The caller must rescue these exceptions;
+    # the quiet contract of `append` covers only the event-level failures above.
+    #
     # @param [Funes::Event] new_event The event to append to the stream.
     # @param [Time, Date, nil] at The actual time when the event occurred. When provided, this overrides
     #   the event's `actual_time_attribute` value. When nil, falls back to the attribute or `Time.current`.
-    # @return [Funes::Event] The event object (check `valid?` to see if it was persisted).
+    # @return [Funes::Event] The event object (check `persisted?` or `valid?` to see if it was persisted).
+    # @raise [ActiveRecord::RecordInvalid] if a transactional projection's materialization fails its
+    #   validations on the default upsert path. `e.record` is the projection's materialization model,
+    #   not the event.
+    # @raise [ActiveRecord::StatementInvalid] if a transactional projection fails with a database
+    #   error, such as a constraint violation.
+    # @raise [Funes::InvalidMaterializationState] if a transactional projection that persists via
+    #   `persist_materialization_model_with` produces an invalid state. `e.record` is the
+    #   materialization model.
+    # @raise [Funes::UnknownEvent] if a consistency or transactional projection in strict mode
+    #   receives an event without an `interpretation_for` block.
     # @raise [Funes::ConflictingActualTimeError] if both `at:` and the event's `actual_time_attribute`
     #   are present with different values.
     # @raise [Funes::MissingActualTimeAttributeError] if the stream declares `actual_time_attribute`
@@ -251,9 +271,11 @@ module Funes
     # - Version conflict (race condition on insert) → raises `ActiveRecord::RecordInvalid` with the
     #   event as `record` and a racing-condition message on `event.errors[:base]`.
     # - A transactional projection's persistence fails → the original
-    #   `ActiveRecord::StatementInvalid` / `ActiveRecord::RecordInvalid` is re-raised untouched (its
+    #   `ActiveRecord::StatementInvalid` / `ActiveRecord::RecordInvalid` (or
+    #   `Funes::InvalidMaterializationState` on a custom persist method) is re-raised untouched (its
     #   `record` is the projection's materialization model, not the event). `event.persisted?` is
-    #   still false after the rescue.
+    #   still false after the rescue. Plain {#append} raises these too — this failure mode is not
+    #   exclusive to the bang form.
     #
     # Async projections are only enqueued when `append!` returns successfully. When `append!` is
     # nested inside a user-opened `ActiveRecord::Base.transaction` that later rolls back, Rails'
@@ -267,6 +289,10 @@ module Funes
     #   projection validation failures).
     # @raise [ActiveRecord::StatementInvalid] When a transactional projection fails with a database
     #   constraint violation.
+    # @raise [Funes::InvalidMaterializationState] When a transactional projection that persists via
+    #   `persist_materialization_model_with` produces an invalid state. See {#append}.
+    # @raise [Funes::UnknownEvent] When a projection in strict mode receives an event without an
+    #   `interpretation_for` block. See {#append}.
     # @raise [Funes::ConflictingActualTimeError] See {#append}.
     # @raise [Funes::MissingActualTimeAttributeError] See {#append}.
     #
