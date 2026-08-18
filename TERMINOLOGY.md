@@ -15,3 +15,5 @@ user-facing documentation only. Canonical phrasing binds everywhere.
 | stream of events | event stream | The canonical name of the concept (see `concepts/event-stream.md`) |
 | view, read model | projection | The canonical name of the concept (see `concepts/projection.md`) |
 | write/push an event | append an event | Appending is the only write operation on an event stream |
+| a consistency projection failure raises, fails the append with an exception | Funes rejects the event | A consistency failure is quiet: `append` returns the event with its errors and raises nothing; only `append!` raises |
+| a transactional projection failure rejects the event, rolls back (with no mention of the raise) | Funes raises and the transaction rolls back | A transactional failure is loud: the exception propagates out of `append` and `append!` alike — "rejects" hides the raise the caller must rescue |

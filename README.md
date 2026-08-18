@@ -130,7 +130,7 @@ Funes gives you fine-grained control over when and how projections run:
 
 * **Atomic updates:** transactional projections update the persisted materialization in the same database transaction as the event insertion.
 * **Validation before persistence:** Funes runs validations on the materialization model before its persistence. If the model is invalid, Funes raises an error and the transaction rolls back. Funes does not persist the event.
-* **Fail loud on errors:** a projection can fail with a database error, such as a constraint violation, or with a validation error. The transaction then rolls back, and `persisted?` returns `false` for the event. The exceptions (`ActiveRecord::StatementInvalid` or `ActiveRecord::RecordInvalid`, for instance) propagate. This behavior makes bugs visible and leaves the event in a consistent state for your rescue logic.
+* **Fail loud on errors:** a projection can fail with a database error, such as a constraint violation, or with a validation error. The transaction then rolls back, and `persisted?` returns `false` for the event. The exceptions (`ActiveRecord::StatementInvalid`, `ActiveRecord::RecordInvalid`, or `Funes::InvalidMaterializationState`) propagate from `append` and `append!` alike. This behavior makes bugs visible and leaves the event in a consistent state for your rescue logic.
 
 ### Async projections
 
