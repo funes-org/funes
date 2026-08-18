@@ -122,15 +122,18 @@ Funes orchestrates projection materializations across three tiers, from synchron
 | Tier | When it runs | Use case                                                                                                                                                                                                                                                                      |
 |:-----|:-------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Consistency | Before Funes persists the event | Validate the resulting state with a virtual projection — if invariants fail, Funes rejects the event and never persists it (see [Set up virtual projections](/recipes/materialization-models/virtual/))                                                           |
-| Transactional | In the same database transaction as the event insertion | Keep a persistent projection strongly consistent with the log — a failure rolls back both the projection and the event insertion (see [Set up persistent projections](/recipes/materialization-models/persistent/)) |
+| Transactional | In the same database transaction as the event insertion | Keep a persistent projection strongly consistent with the log — a failure raises to the caller and rolls back both the projection write and the event insertion (see [Set up persistent projections](/recipes/materialization-models/persistent/)) |
 | Async | Background job via `ActiveJob` | Update persistent projections for reports, analytics, and other eventually consistent needs (see [Set up persistent projections](/recipes/materialization-models/persistent/))                                                                                    |
 
 {: .note }
 All three tiers are opt-in: a projection runs at a tier only when you register it there. The consistency tier is the **highly recommended** one — it's the best place to reject an event before the event enters the log, whenever the resulting state has business invariants to enforce.
 
+{: .note }
+The two synchronous tiers fail in different ways. A consistency failure is quiet: `append` returns the event with its errors, and Funes raises no exception. A transactional failure is loud: the exception propagates out of `append` and `append!` alike, so the caller must handle it — see [Rescue transactional projection failures](/recipes/events-the-rails-way/controllers/#rescue-transactional-projection-failures).
+
 Because async projections run on `ActiveJob`, any standard Rails job backend works out of the box — `Sidekiq`, `Solid Queue`, or any other `ActiveJob`-compatible adapter — with no Funes-specific wiring. When you register an async projection, you can pass standard `ActiveJob` scheduling options like `queue`, `wait`, and `wait_until`.
 
-The sequence below traces a single `append` through all three tiers, including the rejection branches when the consistency or transactional steps fail:
+The sequence below traces a single `append` through all three tiers, including the failure branches when the consistency or transactional steps fail:
 
 ```mermaid
 sequenceDiagram
@@ -143,7 +146,7 @@ sequenceDiagram
     App->>Stream: append(event)
     Stream->>Stream: Consistency projection — replay and validate the resulting state
     alt invariants fail
-        Note over App: ❌ event.persisted? = false
+        Note over App: ❌ append returns the event with errors<br/>event.persisted? = false
     else invariants hold
         Stream->>DB: BEGIN transaction
         Stream->>DB: INSERT event row
@@ -151,7 +154,7 @@ sequenceDiagram
         Stream->>DB: Transactional projection — persist the materialization model (upsert by default)
         alt validation or persist fails
             Stream->>DB: ROLLBACK ❌
-            Note over App: ❌ event.persisted? = false
+            Note over App: ❌ append raises — the caller rescues<br/>event.persisted? = false
         else both succeed
             Stream->>DB: COMMIT ✅
             Stream->>Job: enqueue Async projections

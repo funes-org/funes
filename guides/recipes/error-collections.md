@@ -16,7 +16,9 @@ nav_order: 4
 
 ---
 
-When an append fails, two independent things can be wrong: the event itself can be invalid, or the event can be valid but lead to an invalid state once a consistency projection replays it. Funes keeps these two failure modes apart so your form can show the right message in the right place.
+When an append fails quietly, two independent things can be wrong: the event itself can be invalid, or the event can be valid but lead to an invalid state once a consistency projection replays it. Funes keeps these two failure modes apart so your form can show the right message in the right place.
+
+A third failure mode exists, and no error collection records it: when a transactional projection fails, `append` raises instead. See [Rescue transactional projection failures](/recipes/events-the-rails-way/controllers/#rescue-transactional-projection-failures).
 
 Every event exposes three error collections. They all return `ActiveModel::Errors`, so anything you'd do with a Rails model's `errors` works here too.
 

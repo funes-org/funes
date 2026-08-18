@@ -22,8 +22,11 @@ By default, `append` opens its own transaction so the event, its consistency pro
 
 The pair mirrors Rails' `save` / `save!`:
 
-- `append` returns the event itself and quietly leaves it invalid (`event.persisted? == false`, `event.errors.any?`) when validation fails. Your controller checks `persisted?` and re-renders.
+- `append` returns the event itself and quietly leaves it invalid (`event.persisted? == false`, `event.errors.any?`) when the event fails its own validations or the consistency projection rejects it. Your controller checks `persisted?` and re-renders.
 - `append!` also returns the event, but raises `ActiveRecord::RecordInvalid` on any failure. Inside a transaction you opened, that exception rolls back everything in the block — exactly the behaviour you want when the event has to commit alongside other state.
+
+{: .note }
+The quiet path of `append` covers the event's own validations and the consistency projection only. When a transactional projection fails, both forms raise — see [Rescue transactional projection failures](/recipes/events-the-rails-way/controllers/#rescue-transactional-projection-failures).
 
 ## Coordinate with sibling writes
 

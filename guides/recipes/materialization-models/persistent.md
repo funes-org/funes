@@ -56,7 +56,7 @@ end
 That is everything Funes needs to handle the model: `ActiveRecord::Base` already exposes `attributes`, `assign_attributes`, `valid?`, and `errors`. Funes uses ActiveRecord's `upsert` to write the projected state into the table.
 
 {: .note }
-A bare `Model.upsert(...)` skips validations and callbacks entirely and goes straight to SQL. Funes does not: it calls `state.valid?` on the projected materialization first, and runs the upsert only when the state passes. This gate is particularly powerful when you wire the projection as **transactional** on an event stream. The upsert runs inside the same transaction as the event insertion, so a failed `state.valid?` raises `Funes::InvalidMaterializationState` and rolls the whole append back — the event itself never lands in the log.
+A bare `Model.upsert(...)` skips validations and callbacks entirely and goes straight to SQL. Funes does not: it calls `state.valid?` on the projected materialization first, and runs the upsert only when the state passes. This gate is particularly powerful when you wire the projection as **transactional** on an event stream. The upsert runs inside the same transaction as the event insertion, so a failed `state.valid?` raises `ActiveRecord::RecordInvalid` and rolls the whole append back — the event itself never lands in the log. The exception propagates out of `append` and `append!` alike, so the caller must rescue it — see [Rescue transactional projection failures](/recipes/events-the-rails-way/controllers/#rescue-transactional-projection-failures).
 
 ### Wire the materialization model to the projection
 
@@ -130,7 +130,7 @@ end
 A few things follow from this setup:
 
 - **Validation still runs first.** Funes calls `state.valid?` before it delegates. If the state is invalid, Funes raises `Funes::InvalidMaterializationState` (with the failed materialization in `error.record`) and never calls your persist method.
-- **The method must raise on failure.** Funes lets the exception propagate untouched. If the projection runs inside an `ActiveRecord::Base.transaction` (for example, from `append!`), the exception rolls back the transaction just like any other failure would.
+- **The method must raise on failure.** Funes lets the exception propagate untouched. When the projection runs as a transactional projection, the exception rolls back the whole append — from `append` and `append!` alike — and reaches the caller.
 
 {: .note }
 When you register the projection with `add_async_projection`, the persist method runs inside `Funes::PersistProjectionJob`. If the method raises, ActiveJob's standard retry machinery takes over. The destination must tolerate retries — most do, as long as the writes are idempotent on `idx`.
