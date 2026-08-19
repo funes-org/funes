@@ -62,26 +62,23 @@ An `append` on a stream with a transactional projection can raise:
 - `Funes::InvalidMaterializationState` — the same failure, on a projection that persists with a custom method.
 - `ActiveRecord::StatementInvalid` — the database rejected the projection's write, for example on a constraint violation.
 
-Often the right response is none: let the exception reach your error tracker, like any other bug. When the controller can respond better, put a rescue around the append:
+Often the right response is none: let the exception reach your error tracker, like any other bug. When the controller can respond better, add a rescue clause to the action:
 
 ```ruby
 # app/controllers/debts_controller.rb
 def create
   @event = Debt::Issued.new(event_params)
   debt_stream = DebtEventStream.for(debt_id)
-
-  begin
-    debt_stream.append(@event)
-  rescue ActiveRecord::RecordInvalid, Funes::InvalidMaterializationState => error
-    # error.record is the projection's materialization model, not @event
-    return render :new, status: :unprocessable_entity
-  end
+  debt_stream.append(@event)
 
   if @event.persisted?
     redirect_to debt_path(debt_stream)
   else
     render :new, status: :unprocessable_entity
   end
+rescue ActiveRecord::RecordInvalid, Funes::InvalidMaterializationState => error
+  # error.record is the projection's materialization model, not @event
+  render :new, status: :unprocessable_entity
 end
 ```
 
