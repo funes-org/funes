@@ -71,7 +71,7 @@ Every append starts with `event.valid?` — the `ActiveModel` validations on the
 You can also opt into a **consistency validation**. An interpretation (see [Projections](/concepts/projection/)) replays the new event on top of the previously persisted ones and checks the logical invariants of the resulting state. If those invariants don't hold, Funes rejects the event — even if `valid?` would have passed.
 
 {: .note }
-After you configure the stream, your responsibility ends at `.append`. Funes handles the rest: it invokes `valid?`, replays the interpretation, gathers errors, and decides whether to persist.
+For these validations, your responsibility ends at `.append` once you configure the stream. Funes handles the rest: it invokes `valid?`, replays the interpretation, gathers errors, and decides whether to persist. A [transactional projection](/concepts/projection/#persistence-tiers-for-projections) is the one exception — when it fails, `.append` raises, and the caller must rescue (see [Rescue transactional projection failures](/recipes/events-the-rails-way/controllers/#rescue-transactional-projection-failures)).
 
 ### Define a consistency validation
 

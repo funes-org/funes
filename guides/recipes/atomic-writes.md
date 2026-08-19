@@ -16,14 +16,17 @@ nav_order: 5
 
 ---
 
-By default, `append` opens its own transaction so the event, its consistency projection, and any transactional projections all commit or roll back together. That's the right behaviour most of the time. But sometimes you need to coordinate the append with writes outside the stream — keep a sibling `update!` in lockstep, or write to two streams atomically. For those cases, Funes ships `append!`.
+By default, `append` opens its own transaction, so the event and any transactional projections commit or roll back together. (The consistency projection needs no transaction: it runs before the event reaches the database and writes nothing.) That's the right behaviour most of the time. But sometimes you need to coordinate the append with writes outside the stream — keep a sibling `update!` in lockstep, or write to two streams atomically. For those cases, Funes ships `append!`.
 
 ## `append` vs `append!`
 
 The pair mirrors Rails' `save` / `save!`:
 
-- `append` returns the event itself and quietly leaves it invalid (`event.persisted? == false`, `event.errors.any?`) when validation fails. Your controller checks `persisted?` and re-renders.
-- `append!` also returns the event, but raises `ActiveRecord::RecordInvalid` on any failure. Inside a transaction you opened, that exception rolls back everything in the block — exactly the behaviour you want when the event has to commit alongside other state.
+- `append` returns the event itself and quietly leaves it invalid (`event.persisted? == false`, `event.errors.any?`) when the event fails its own validations or the consistency projection rejects it. Your controller checks `persisted?` and re-renders.
+- `append!` also returns the event, but raises `ActiveRecord::RecordInvalid` on the failures that `append` leaves quiet. Inside a transaction you opened, that exception rolls back everything in the block — exactly the behaviour you want when the event has to commit alongside other state.
+
+{: .note }
+The quiet path of `append` covers the event's own validations and the consistency projection only. When a transactional projection fails, both forms raise — see [Rescue transactional projection failures](/recipes/events-the-rails-way/controllers/#rescue-transactional-projection-failures).
 
 ## Coordinate with sibling writes
 
@@ -42,7 +45,7 @@ rescue ActiveRecord::RecordInvalid
 end
 ```
 
-If the event is invalid — its own validations fail, the consistency projection rejects it, or any transactional projection raises — the customer update rolls back too. The failed event stays queryable after the rescue (`persisted?`, `errors`), just like a model that failed `save!`.
+If the event fails its own validations, or the consistency projection rejects it, `append!` raises `ActiveRecord::RecordInvalid` and the customer update rolls back too. The failed event stays queryable after the rescue (`persisted?`, `errors`), just like a model that failed `save!`. A transactional projection failure also rolls back the whole block, but through its own exceptions, and it puts no errors on the event — see [Rescue transactional projection failures](/recipes/events-the-rails-way/controllers/#rescue-transactional-projection-failures).
 
 ## Append to two streams atomically
 

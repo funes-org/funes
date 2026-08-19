@@ -43,7 +43,7 @@ end
 In this sample, the interpretation block sees both sides — `event.principal_amount` and `state.outstanding_balance` — a view that a model-level `validates` on `OutstandingBalance` does not have.
 
 {: .important }
-This pattern earns its place in **consistency projections**. An invalid event — an overpayment, in our example — must never reach the log, and the consistency projection is the only tier that runs *before* persistence. During an append, this error rolls back the database transaction and lands in the event's error collections.
+This pattern earns its place in **consistency projections**. An invalid event — an overpayment, in our example — must never reach the log, and the consistency projection is the only tier that runs *before* persistence. During an append, this error makes Funes reject the event before the event reaches the database, and the error lands in the event's error collections.
 
 ## Read the errors after a rejected append
 
