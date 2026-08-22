@@ -127,14 +127,16 @@ module Funes
       # replacing the framework's default upsert.
       #
       # When set, the named method is invoked on the in-memory state after all interpretations have
-      # run and +idx+ has been assigned. The method takes no arguments and is expected to raise on
+      # run. If the materialization model exposes an +idx+ writer (+idx=+), the framework assigns
+      # +idx+ first, so the method knows which stream the state belongs to; models without an +idx+
+      # attribute are left untouched. The method takes no arguments and is expected to raise on
       # failure. The framework still calls +state.valid?+ and raises
       # +Funes::InvalidMaterializationState+ before delegating, so the custom method only runs
       # against valid state.
       #
       # Declaring +persist_materialization_model_with+ also lifts the requirement that the
       # materialization model be an +ActiveRecord::Base+ subclass: a plain +ActiveModel+ class is
-      # enough as long as it exposes +assign_attributes+, +attributes+, +valid?+ and +errors+.
+      # enough as long as it exposes +assign_attributes+, +valid?+ and +errors+.
       #
       # @param [Symbol] method_name The instance method on the materialization model that performs the write.
       # @return [void]
@@ -212,7 +214,7 @@ module Funes
     def materialize!(events_collection, idx, at: nil)
       state = process_events(events_collection, at: at)
       if persistable?
-        state.assign_attributes(idx:)
+        state.assign_attributes(idx:) if state.respond_to?(:idx=)
         persist_based_on!(state)
         return state if @persist_method
       end

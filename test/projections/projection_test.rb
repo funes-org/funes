@@ -341,5 +341,43 @@ class ProjectionTest < ActiveSupport::TestCase
       refute LocalSpyMaterializationModel <= ActiveRecord::Base
       assert_equal 1, LocalSpyMaterializationModel.last_instance.persist_calls
     end
+
+    describe "when the materialization model has no idx attribute" do
+      class LocalIdxLessSpyM13nModel
+        include ActiveModel::Model
+        include ActiveModel::Attributes
+
+        attribute :balance, :decimal
+
+        attr_accessor :persist_calls
+
+        def initialize(*)
+          super
+          @persist_calls = 0
+        end
+
+        def persist!
+          @persist_calls += 1
+          true
+        end
+      end
+
+      class LocalIdxLessSpyProjection < Funes::Projection
+        materialization_model LocalIdxLessSpyM13nModel
+        persist_materialization_model_with :persist!
+
+        interpretation_for Examples::DepositEvents::Created do |state, event, _at|
+          state.assign_attributes(balance: event.value)
+          state
+        end
+      end
+
+      it "skips the idx assignment and still invokes the persist method" do
+        returned = LocalIdxLessSpyProjection.materialize!(events_coll, "some-id", at: today)
+
+        assert_equal 1, returned.persist_calls
+        refute returned.respond_to?(:idx)
+      end
+    end
   end
 end

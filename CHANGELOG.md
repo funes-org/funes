@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `Projection.materialize!` now assigns `idx` only when the materialization
+  model exposes an `idx` writer. Before, a projection with
+  `persist_materialization_model_with` and a model without an `idx` attribute
+  raised `ActiveModel::UnknownAttributeError`
+  ([#79](https://github.com/funes-org/funes/pull/79))
+
 ## [0.3.0] - 2026-08-11
 
 ### Added
