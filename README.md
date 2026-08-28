@@ -147,7 +147,7 @@ Funes gives you fine-grained control over when and how projections run:
 
 You can read the guides and the full API documentation at [docs.funes.org](https://docs.funes.org).
 
-For a hands-on example, see the [Funes Workshop](https://github.com/viniciusalmeida/funes_workshop). The workshop is a small Rails app that models a debt lifecycle: loan issuance, daily interest accrual, and payments. It shows how to use Events, Event Streams, and Projections in a realistic financial domain.
+For hands-on examples, see the [Funes Lab](https://github.com/funes-org/lab). The lab holds small example apps. Each app is one self-contained file with its schema, domain code, and tests, and it runs against an in-memory database. The apps show Events, Event Streams, and Projections at work in realistic domains, such as debt balances, bi-temporal salary history, and historical product prices.
 
 ## Performance
 
