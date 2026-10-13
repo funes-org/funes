@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_07_29_000000) do
+ActiveRecord::Schema[7.1].define(version: 2026_10_01_000000) do
   create_table "accounts", force: :cascade do |t|
     t.string "number"
     t.datetime "created_at", null: false
@@ -48,7 +48,9 @@ ActiveRecord::Schema[7.1].define(version: 2026_07_29_000000) do
     t.bigint "version", default: 1, null: false
     t.datetime "created_at", null: false
     t.datetime "occurred_at", null: false
+    t.string "idempotency_key"
     t.index ["created_at"], name: "index_event_entries_on_created_at"
+    t.index ["idempotency_key"], name: "index_event_entries_on_idempotency_key", unique: true, where: "idempotency_key IS NOT NULL"
     t.index ["idx", "version"], name: "index_event_entries_on_idx_and_version", unique: true
     t.index ["idx"], name: "index_event_entries_on_idx"
     t.index ["occurred_at"], name: "index_event_entries_on_occurred_at"

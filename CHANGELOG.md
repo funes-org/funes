@@ -10,6 +10,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Idempotency keys for event appends. `append` and `append!` accept
+  `idempotency_key:`, and a unique index on `idempotency_key` rejects a
+  second use of the key across all event streams. A repeated key in the same
+  stream with the same event class and attributes writes nothing, runs no
+  projection, and returns the event with `duplicate?` set to true. A repeated
+  key in the same stream with a different event class or different attributes
+  is a conflict: `append` returns the event with an error, and `append!`
+  raises `Funes::IdempotencyKeyConflictError`. A repeated key in another
+  stream is also a conflict: `append!` raises
+  `Funes::IdempotencyKeyUsedInAnotherStreamError`, and its `idx` names the
+  stream that holds the key. The event stream macros
+  `requires_idempotency_key` and `requires_idempotency_key_for` make the key
+  mandatory, and an append without a mandatory key raises
+  `Funes::MissingIdempotencyKeyError`. New applications get the column from
+  `funes:install`. On PostgreSQL and SQLite the index is partial, so events
+  without a key add nothing to it. For an existing events table, run
+  `bin/rails generate funes:idempotency_key` and then `bin/rails db:migrate`
+  before you use a key. Appends without a key continue to work without the
+  migration ([#80](https://github.com/funes-org/funes/pull/80))
+
 ## [0.3.0] - 2026-08-11
 
 ### Added

@@ -1,10 +1,12 @@
 require "rails/generators/base"
 require "rails/generators/active_record"
+require "generators/funes/database_adapter"
 
 module Funes
   module Generators
     class InstallGenerator < Rails::Generators::Base
       include Rails::Generators::Migration
+      include Funes::Generators::DatabaseAdapter
 
       source_root File.expand_path("templates", __dir__)
       desc "Funes rules!!!"
@@ -24,16 +26,8 @@ module Funes
       end
 
       private
-        def json_column_type
-          postgres? ? "jsonb" : "json"
-        end
-
         def migration_version
           "[#{::Rails::VERSION::MAJOR}.#{::Rails::VERSION::MINOR}]"
-        end
-
-        def postgres?
-          ActiveRecord::Base.configurations.configs_for(env_name: Rails.env).first&.adapter == "postgresql"
         end
     end
   end

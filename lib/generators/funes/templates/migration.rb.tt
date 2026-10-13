@@ -8,11 +8,13 @@ class CreateFunesEventsTable < ActiveRecord::Migration<%= migration_version %>
       t.column :version, :bigint, default: 1, null: false
       t.column :created_at, :datetime, null: false
       t.column :occurred_at, :datetime, null: false
+      t.column :idempotency_key, :string
     end
 
     add_index :event_entries, :idx
     add_index :event_entries, :created_at
     add_index :event_entries, :occurred_at
     add_index :event_entries, [ :idx, :version ], unique: true
+    add_index :event_entries, :idempotency_key, unique: true<%= idempotency_key_index_options %>
   end
 end

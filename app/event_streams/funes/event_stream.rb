@@ -35,6 +35,31 @@ module Funes
   # version number with a unique constraint on `(idx, version)`, preventing race conditions when multiple
   # processes append to the same stream simultaneously.
   #
+  # ## Idempotency Keys
+  #
+  # `append` and `append!` accept an `idempotency_key:`, an arbitrary string composed by the caller
+  # that identifies a delivery (a broker message, a form submission), not a domain fact. The key is
+  # stored with the event and a unique constraint on `idempotency_key` guarantees that it is used
+  # at most once across all streams, even under concurrent appends. A key that names a fact of one
+  # entity must therefore carry the entity, e.g. `"fee:#{idx}:2026-02"`.
+  #
+  # When the key is already stored:
+  #
+  # - In the same stream, by an event with the same class and attributes (metainformation is
+  #   ignored): the append is a duplicate. Nothing is written, no projection runs, and the event is
+  #   returned carrying the original entry, with `duplicate?` returning true.
+  # - In the same stream, by an event with a different class or attributes: the append is a
+  #   conflict. `append` returns the event unpersisted with an error; `append!` raises
+  #   {Funes::IdempotencyKeyConflictError}.
+  # - In another stream: the caller is on the wrong stream, whatever the event looks like. `append`
+  #   returns the event unpersisted with an error that names that stream; `append!` raises
+  #   {Funes::IdempotencyKeyUsedInAnotherStreamError}, whose `idx` names it. This is what a
+  #   redelivered creation message hits when the consumer mints a new `idx` for each delivery.
+  #
+  # Streams can declare which events must arrive with a key via `requires_idempotency_key` (every
+  # event) or `requires_idempotency_key_for` (some event classes); a missing required key raises
+  # {Funes::MissingIdempotencyKeyError}.
+  #
   # @example Define an event stream with projections
   #   class OrderEventStream < Funes::EventStream
   #     consistency_projection OrderValidationProjection
@@ -68,6 +93,19 @@ module Funes
   #   stream = SalaryEventStream.for("sally-123")
   #   stream.projected_with(SalaryProjection, as_of: Time.new(2025, 3, 1), at: Time.new(2025, 2, 20))
   class EventStream
+    # Raised inside the append transaction when the database rejects a row for a unique index, so
+    # the block rolls back and the caller decides, outside the transaction, whether the collision was
+    # a repeated idempotency key or a version race.
+    class UniquenessViolation < StandardError
+      attr_reader :on_insert
+
+      def initialize(on_insert:)
+        super("unique index violated while appending an event")
+        @on_insert = on_insert
+      end
+    end
+    private_constant :UniquenessViolation
+
     class << self
       # Register a consistency projection that validates business rules before persisting events.
       #
@@ -171,6 +209,40 @@ module Funes
         end
       end
 
+      # Requires an idempotency key for every event appended to this stream.
+      #
+      # Appending without `idempotency_key:` raises {Funes::MissingIdempotencyKeyError}, on both
+      # `append` and `append!`.
+      #
+      # @return [void]
+      #
+      # @example
+      #   class LedgerEventStream < Funes::EventStream
+      #     requires_idempotency_key
+      #   end
+      def requires_idempotency_key
+        @requires_idempotency_key = true
+      end
+
+      # Requires an idempotency key only for the given event classes.
+      #
+      # Appending one of these events (or an instance of a subclass) without `idempotency_key:`
+      # raises {Funes::MissingIdempotencyKeyError}, on both `append` and `append!`. Other events
+      # can still be appended without a key.
+      #
+      # @param [Array<Class<Funes::Event>>] event_classes The event classes that need a key.
+      #   An array is accepted too.
+      # @return [void]
+      #
+      # @example
+      #   class DebtEventStream < Funes::EventStream
+      #     requires_idempotency_key_for Debt::FeeCharged, Debt::PaymentReceived
+      #   end
+      def requires_idempotency_key_for(*event_classes)
+        @idempotency_key_required_for ||= []
+        @idempotency_key_required_for.concat(event_classes.flatten)
+      end
+
       # Create a new EventStream instance for the given entity identifier.
       #
       # @param [String] idx The entity identifier.
@@ -205,6 +277,13 @@ module Funes
     # (race condition on insert), `append` raises nothing — it returns the event unpersisted with
     # its errors populated.
     #
+    # When `idempotency_key:` is given and the key is already stored, nothing is written and no
+    # projection runs. If the stored event is in this stream with the same class and attributes,
+    # the event is returned with `duplicate?` true, carrying the original entry (`persisted?` is
+    # true and `version` is the original one). Otherwise the key conflicts, either with a different
+    # event in this stream or with an event in another stream: the event is returned unpersisted
+    # with an error on `errors[:base]`.
+    #
     # A transactional projection failure is loud even on this non-bang form: the exception escapes
     # the call untouched and the transaction rolls back, so the event never lands in the log
     # (`event.persisted?` is false after the rescue). The caller must rescue these exceptions;
@@ -213,6 +292,8 @@ module Funes
     # @param [Funes::Event] new_event The event to append to the stream.
     # @param [Time, Date, nil] at The actual time when the event occurred. When provided, this overrides
     #   the event's `actual_time_attribute` value. When nil, falls back to the attribute or `Time.current`.
+    # @param [String, nil] idempotency_key A caller-composed string that identifies this delivery.
+    #   Unique across all streams. A blank value counts as no key.
     # @return [Funes::Event] The event object (check `persisted?` or `valid?` to see if it was persisted).
     # @raise [ActiveRecord::RecordInvalid] if a transactional projection's materialization fails its
     #   validations on the default upsert path. `e.record` is the projection's materialization model,
@@ -228,6 +309,8 @@ module Funes
     #   are present with different values.
     # @raise [Funes::MissingActualTimeAttributeError] if the stream declares `actual_time_attribute`
     #   but the event doesn't have the attribute or its value is nil.
+    # @raise [Funes::MissingIdempotencyKeyError] if the stream requires an idempotency key for the
+    #   event (`requires_idempotency_key` / `requires_idempotency_key_for`) and none was given.
     #
     # @example Successful append
     #   event = stream.append(Order::Placed.new(total: 99.99))
@@ -249,8 +332,12 @@ module Funes
     #   if event.errors[:base].present?
     #     # Race condition detected, retry logic here
     #   end
-    def append(new_event, at: nil)
-      do_append(new_event, at: at, raise_on_failure: false)
+    #
+    # @example Append with an idempotency key
+    #   event = stream.append(Debt::PaymentReceived.new(amount: 30), idempotency_key: "charge:ch_1")
+    #   event.duplicate? # => true when "charge:ch_1" already recorded this same payment
+    def append(new_event, at: nil, idempotency_key: nil)
+      do_append(new_event, at: at, idempotency_key: idempotency_key, raise_on_failure: false)
     end
 
     # Append a new event to the stream, raising on any failure.
@@ -276,6 +363,11 @@ module Funes
     #   `record` is the projection's materialization model, not the event). `event.persisted?` is
     #   still false after the rescue. Plain {#append} raises these too — this failure mode is not
     #   exclusive to the bang form.
+    # - The idempotency key is already stored in this stream for a different event class or
+    #   different attributes → raises {Funes::IdempotencyKeyConflictError}. A repeated key with the
+    #   same class and attributes is not a failure: the event is returned with `duplicate?` true.
+    # - The idempotency key is already stored in another stream → raises
+    #   {Funes::IdempotencyKeyUsedInAnotherStreamError}; its `idx` names that stream.
     #
     # Async projections are only enqueued when `append!` returns successfully. When `append!` is
     # nested inside a user-opened `ActiveRecord::Base.transaction` that later rolls back, Rails'
@@ -283,6 +375,7 @@ module Funes
     #
     # @param [Funes::Event] new_event The event to append to the stream.
     # @param [Time, Date, nil] at See {#append}.
+    # @param [String, nil] idempotency_key See {#append}.
     # @return [Funes::Event] The persisted event.
     # @raise [ActiveRecord::RecordInvalid] When the event cannot be persisted. `e.record` is the
     #   failed event (for event-level failures) or a projection materialization model (for
@@ -295,6 +388,11 @@ module Funes
     #   `interpretation_for` block. See {#append}.
     # @raise [Funes::ConflictingActualTimeError] See {#append}.
     # @raise [Funes::MissingActualTimeAttributeError] See {#append}.
+    # @raise [Funes::MissingIdempotencyKeyError] See {#append}.
+    # @raise [Funes::IdempotencyKeyConflictError] When the idempotency key is already stored in this
+    #   stream for a different event class or different attributes.
+    # @raise [Funes::IdempotencyKeyUsedInAnotherStreamError] When the idempotency key is already
+    #   stored in another stream. A subclass of {Funes::IdempotencyKeyConflictError}.
     #
     # @example Host-managed transaction with a sibling AR update
     #   event = SomeEvent.new(some: "value")
@@ -320,8 +418,8 @@ module Funes
     #     event_1.persisted? # => false
     #     event_2.persisted? # => false
     #   end
-    def append!(new_event, at: nil)
-      do_append(new_event, at: at, raise_on_failure: true)
+    def append!(new_event, at: nil, idempotency_key: nil)
+      do_append(new_event, at: at, idempotency_key: idempotency_key, raise_on_failure: true)
     end
 
     # @!visibility private
@@ -437,13 +535,20 @@ module Funes
     end
 
     private
-      def do_append(new_event, at:, raise_on_failure:)
+      def do_append(new_event, at:, idempotency_key:, raise_on_failure:)
+        idempotency_key = resolve_idempotency_key(new_event, idempotency_key)
+
         unless new_event.valid?
           raise ActiveRecord::RecordInvalid.new(new_event) if raise_on_failure
           return new_event
         end
 
         occurred_at = resolve_proper_occurred_at(new_event, at)
+
+        # Fast path only: the unique index on idempotency_key is the guarantee.
+        if idempotency_key && (stored_entry = entry_with_idempotency_key(idempotency_key))
+          return resolve_repeated_idempotency_key(new_event, stored_entry, raise_on_failure:)
+        end
 
         if consistency_projection.present?
           materialization = compute_projection_with_new_event(consistency_projection, new_event, occurred_at)
@@ -454,27 +559,122 @@ module Funes
           end
         end
 
+        begin
+          persist_with_transactional_projections(new_event, occurred_at, idempotency_key)
+        rescue UniquenessViolation => violation
+          return resolve_uniqueness_violation(new_event, idempotency_key, violation, raise_on_failure:)
+        end
+
+        schedule_async_projections
+
+        new_event
+      end
+
+      def persist_with_transactional_projections(new_event, occurred_at, idempotency_key)
         ActiveRecord::Base.transaction do
           begin
-            @instance_new_events << new_event.persist!(@idx, incremented_version, at: occurred_at)
+            @instance_new_events << new_event.persist!(@idx, incremented_version, at: occurred_at,
+                                                       idempotency_key: idempotency_key)
             ActiveRecord::Base.connection.current_transaction.after_rollback do
               new_event._event_entry = nil
             end
             run_transactional_projections
           rescue ActiveRecord::RecordNotUnique
+            # persist! sets the entry only when its INSERT succeeded; a violation with the entry in
+            # place came from a transactional projection.
+            on_insert = !new_event.persisted?
             new_event._event_entry = nil
-            new_event.errors.add(:base, I18n.t("funes.events.racing_condition_on_insert"))
-            raise ActiveRecord::RecordInvalid.new(new_event) if raise_on_failure
-            raise ActiveRecord::Rollback
+            raise UniquenessViolation.new(on_insert: on_insert)
           rescue ActiveRecord::StatementInvalid, ActiveRecord::RecordInvalid => e
             new_event._event_entry = nil
             raise e
           end
         end
+      end
 
-        schedule_async_projections unless new_event.errors.any?
+      # The violation can come from (idx, version) or from idempotency_key, and the database
+      # exception does not tell which. A stored entry with the same key answers it. The lookup runs
+      # here, outside the transaction block, because on PostgreSQL the failed insert aborts the
+      # transaction and any query inside it would error.
+      def resolve_uniqueness_violation(new_event, idempotency_key, violation, raise_on_failure:)
+        if idempotency_key && violation.on_insert &&
+           (stored_entry = entry_with_idempotency_key_after_violation(idempotency_key))
+          return resolve_repeated_idempotency_key(new_event, stored_entry, raise_on_failure:)
+        end
+
+        new_event.errors.add(:base, I18n.t("funes.events.racing_condition_on_insert"))
+        raise ActiveRecord::RecordInvalid.new(new_event) if raise_on_failure
 
         new_event
+      end
+
+      def resolve_idempotency_key(event, idempotency_key)
+        idempotency_key = idempotency_key.presence&.to_s
+        return idempotency_key if idempotency_key || !idempotency_key_required_for?(event)
+
+        raise Funes::MissingIdempotencyKeyError,
+              "#{self.class} requires an idempotency key to append #{event.class}, but none was given"
+      end
+
+      def idempotency_key_required_for?(event)
+        return true if self.class.instance_variable_get(:@requires_idempotency_key)
+
+        (self.class.instance_variable_get(:@idempotency_key_required_for) || [])
+          .any? { |event_class| event.is_a?(event_class) }
+      end
+
+      def entry_with_idempotency_key(idempotency_key)
+        Funes::EventEntry.find_by(idempotency_key: idempotency_key)
+      end
+
+      # When the append is nested in a host-opened transaction on PostgreSQL, that transaction is
+      # already aborted by the failed insert and the lookup itself errors. The append then falls
+      # back to the racing-condition error; a retry in a fresh transaction hits the fast path.
+      def entry_with_idempotency_key_after_violation(idempotency_key)
+        entry_with_idempotency_key(idempotency_key)
+      rescue ActiveRecord::StatementInvalid
+        nil
+      end
+
+      def resolve_repeated_idempotency_key(new_event, stored_entry, raise_on_failure:)
+        if stored_entry.idx != @idx
+          new_event.errors.add(:base, I18n.t("funes.events.idempotency_key_used_in_another_stream",
+                                             idx: stored_entry.idx))
+          if raise_on_failure
+            raise Funes::IdempotencyKeyUsedInAnotherStreamError.new(
+              "idempotency key #{stored_entry.idempotency_key.inspect} was already used in event " \
+              "stream #{stored_entry.idx.inspect} (#{stored_entry.klass}, version #{stored_entry.version})",
+              entry: stored_entry
+            )
+          end
+          return new_event
+        end
+
+        if same_event?(new_event, stored_entry)
+          new_event._event_entry = stored_entry
+          new_event._duplicate = true
+          return new_event
+        end
+
+        new_event.errors.add(:base, I18n.t("funes.events.idempotency_key_conflict"))
+        if raise_on_failure
+          raise Funes::IdempotencyKeyConflictError.new(
+            "idempotency key #{stored_entry.idempotency_key.inspect} was already used in " \
+            "#{self.class} #{@idx.inspect} by a different event (#{stored_entry.klass}, " \
+            "version #{stored_entry.version})",
+            entry: stored_entry
+          )
+        end
+
+        new_event
+      end
+
+      # Compares class and attributes only; metainformation is ignored, so the same fact recorded
+      # by two different users is a duplicate. Attributes are compared in their serialized form,
+      # the same form the stored props went through.
+      def same_event?(new_event, stored_entry)
+        stored_entry.klass == new_event.class.name &&
+          stored_entry.props == ActiveSupport::JSON.decode(ActiveSupport::JSON.encode(new_event.attributes))
       end
 
       def run_transactional_projections

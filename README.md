@@ -31,6 +31,24 @@ $ bin/rails generate funes:install
 $ bin/rails db:migrate
 ```
 
+### Upgrade from an earlier version
+
+`funes:install` creates the events table for a new application. It does not change a table that already exists. When you upgrade the gem, find your current version in the list below. Then apply the migrations for every step up to the new version.
+
+#### 0.3.0 to the next release
+
+The next release adds the `idempotency_key` column and a unique index on it. A generator writes the migration for you:
+
+```bash
+$ bin/rails generate funes:idempotency_key
+$ bin/rails db:migrate
+```
+
+The migration adds a nullable string column and a unique index on it. On PostgreSQL and SQLite the index is partial (`where: "idempotency_key IS NOT NULL"`), so events without a key add nothing to it. MySQL has no partial indexes; there the index holds one entry per event. Appends without a key continue to work before you run the migration. Appends with a key need the column.
+
+> [!TIP]
+> **PostgreSQL only.** A unique index on a large table locks writes for the length of the build. To avoid the lock, add `disable_ddl_transaction!` to the migration class and pass `algorithm: :concurrently` to `add_index`. Other adapters do not accept that option. A concurrent build that fails leaves an invalid index behind; drop it before you run the migration again.
+
 ## Core concepts
 
 Funes bridges the gap between event sourcing theory and the Rails tools you already know (`ActiveModel`, `ActiveRecord`, `ActiveJob`).

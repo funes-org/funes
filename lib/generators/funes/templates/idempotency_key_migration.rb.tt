@@ -1,0 +1,6 @@
+class AddIdempotencyKeyToFunesEventsTable < ActiveRecord::Migration<%= migration_version %>
+  def change
+    add_column :event_entries, :idempotency_key, :string
+    add_index :event_entries, :idempotency_key, unique: true<%= idempotency_key_index_options %>
+  end
+end

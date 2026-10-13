@@ -23,7 +23,10 @@ class AsyncProjectionsIntegrationTest < ActiveSupport::TestCase
       .for("order-e2e-2")
       .append(Examples::DepositEvents::Created.new(value: 200, effective_date: Date.today))
 
-    enqueued_job = ActiveJob::Base.queue_adapter.enqueued_jobs.first
+    # The test adapter stores `job.serialize` (string keys) plus symbol keys of its own (:job, :args,
+    # :queue, :priority). Only the serialized part travels through a real backend, and json >= 3.1
+    # refuses to dump a hash whose string and symbol keys collide.
+    enqueued_job = ActiveJob::Base.queue_adapter.enqueued_jobs.first.select { |key, _| key.is_a?(String) }
     over_the_wire = JSON.parse(JSON.dump(enqueued_job))
 
     ActiveJob::Base.execute(over_the_wire)

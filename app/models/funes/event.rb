@@ -79,6 +79,10 @@ module Funes
     #   @return [Funes::EventEntry, nil] The persisted EventEntry record (internal use).
     attr_accessor :_event_entry
 
+    # @!attribute [rw] _duplicate
+    #   @return [Boolean, nil] Whether the append found the idempotency key already stored (internal use).
+    attr_accessor :_duplicate
+
     # @!visibility private
     def initialize(*args, **kwargs)
       super(*args, **kwargs)
@@ -87,15 +91,20 @@ module Funes
     end
 
     # @!visibility private
-    def persist!(idx, version, at: nil)
+    def persist!(idx, version, at: nil, idempotency_key: nil)
       raise Funes::InvalidEventMetainformation,
             Funes::EventMetainformation.errors.full_messages.join(", ") unless Funes::EventMetainformation.valid?
 
       now = Time.current
-      self._event_entry = Funes::EventEntry.create!(klass: self.class.name, idx:, version:, props: attributes,
-                                                    meta_info: Funes::EventMetainformation.attributes,
-                                                    created_at: now,
-                                                    occurred_at: at || now)
+      entry_attributes = { klass: self.class.name, idx:, version:, props: attributes,
+                           meta_info: Funes::EventMetainformation.attributes,
+                           created_at: now,
+                           occurred_at: at || now }
+      # Written only when present so appends without a key keep working on an events table
+      # that does not have the idempotency_key column yet.
+      entry_attributes[:idempotency_key] = idempotency_key if idempotency_key
+
+      self._event_entry = Funes::EventEntry.create!(entry_attributes)
     end
 
     # Check if the event has been persisted to the database.
@@ -150,6 +159,33 @@ module Funes
     #   event = stream.append(Order::Placed.new(total: 99.99))
     #   event.version  # => 1
     def version = _event_entry&.version
+
+    # Returns the idempotency key the event was appended with.
+    #
+    # The key is supplied at the call site (`append(event, idempotency_key: "...")`) and is
+    # unique within the event stream.
+    #
+    # @return [String, nil] The stored key, or `nil` if the event is not persisted or was
+    #   appended without a key.
+    #
+    # @example
+    #   event = stream.append(Debt::PaymentReceived.new(amount: 30), idempotency_key: "charge:ch_1")
+    #   event.idempotency_key  # => "charge:ch_1"
+    def idempotency_key = _event_entry&.idempotency_key
+
+    # Check if the append found the same event already stored under the same idempotency key.
+    #
+    # When it returns `true`, the append wrote nothing and ran no projections. The event carries
+    # the entry of the original append, so `version`, `created_at`, and `occurred_at` are the
+    # original ones.
+    #
+    # @return [Boolean] `true` if the append was a repeat of an earlier one, `false` otherwise.
+    #
+    # @example
+    #   stream.append(Debt::PaymentReceived.new(amount: 30), idempotency_key: "charge:ch_1")
+    #   repeated = stream.append(Debt::PaymentReceived.new(amount: 30), idempotency_key: "charge:ch_1")
+    #   repeated.duplicate?  # => true
+    def duplicate? = _duplicate == true
 
     # Check if the event is valid.
     #

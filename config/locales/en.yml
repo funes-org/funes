@@ -2,4 +2,6 @@ en:
   funes:
     events:
       racing_condition_on_insert: "The current event led to an invalid state"
+      idempotency_key_conflict: "The idempotency key was already used by a different event in this event stream"
+      idempotency_key_used_in_another_stream: "The idempotency key was already used in event stream %{idx}"
       led_to_invalid_state_prefix: "Led to invalid state"
